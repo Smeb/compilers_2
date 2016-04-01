@@ -11,14 +11,12 @@
 .end method
 
 .method public simple()V
-	.limit stack 5
+	.limit stack 3
 
 	getstatic java/lang/System/out Ljava/io/PrintStream;
 	ldc 67
-    i2d
 	ldc 12345
-    i2d
-      dadd
-      invokevirtual java/io/PrintStream/println(D)V
+    iadd
+    invokevirtual java/io/PrintStream/println(I)V
 	return
 .end method

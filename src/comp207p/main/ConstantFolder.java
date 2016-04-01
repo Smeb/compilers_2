@@ -62,7 +62,6 @@ public class ConstantFolder
 
     // To manipulate the method we need a MethodGen, and an InstructionList
 
-    MethodGen mGen = new MethodGen(method, cgen.getClassName(), cpgen);
     InstructionList il = new InstructionList(method.getCode().getCode());
 
     if(_DEBUG){
@@ -85,7 +84,22 @@ public class ConstantFolder
       System.out.println("================================================");
     }
 
-    cgen.replaceMethod(method, mGen.getMethod());
+    // Due to an unresolved bug with changing the instruction list of a
+    // deep copied method it's easier to just create an entirely new
+    // method
+    MethodGen mgen = new MethodGen(
+        method.getAccessFlags(),
+        method.getReturnType(),
+        method.getArgumentTypes(),
+        null,
+        method.getName(),
+        cgen.getClassName(),
+        il,
+        cpgen);
+    il.setPositions(true);
+    mgen.setMaxStack();
+    mgen.setMaxLocals();
+    cgen.replaceMethod(method, mgen.getMethod());
   }
 
   private boolean optimise_conversions(ConstantPoolGen cpgen, InstructionList il){
