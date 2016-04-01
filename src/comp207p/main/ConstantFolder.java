@@ -7,7 +7,13 @@ import java.util.Iterator;
 
 import org.apache.bcel.classfile.ClassParser;
 import org.apache.bcel.classfile.Code;
+import org.apache.bcel.classfile.Constant;
+import org.apache.bcel.classfile.ConstantInteger;
+import org.apache.bcel.classfile.ConstantString;
+import org.apache.bcel.classfile.ConstantUtf8;
+import org.apache.bcel.classfile.ConstantPool;
 import org.apache.bcel.classfile.JavaClass;
+import org.apache.bcel.classfile.LineNumberTable;
 import org.apache.bcel.classfile.Method;
 import org.apache.bcel.generic.ClassGen;
 import org.apache.bcel.generic.ConstantPoolGen;
@@ -37,18 +43,45 @@ public class ConstantFolder
 			e.printStackTrace();
 		}
 	}
-	
+
+  public void optimize_method(ClassGen cgen, ConstantPoolGen cpgen, Method method){
+    Code methodCode = method.getCode();
+    if(methodCode != null){
+      System.out.println(methodCode);
+    }
+
+    // Initialise a new MethodGen using the method as the prototype
+    MethodGen mGen = new MethodGen(method, cgen.getClassName(), cpgen);
+    InstructionList il = new InstructionList(methodCode.getCode());
+    InstructionFinder ifind = new InstructionFinder(il);
+  }
+
 	public void optimize()
 	{
 		ClassGen cgen = new ClassGen(original);
 		ConstantPoolGen cpgen = cgen.getConstantPool();
+    ConstantPool cp = cpgen.getConstantPool();
+    Constant[] constants = cp.getConstantPool();
+    Method[] methods = cgen.getMethods();
 
-		// Implement your optimization here
-        
+    for(Constant c : constants){
+      // Debugging to print out constants that we care about
+      if(c == null) continue;
+      else if(c instanceof ConstantString) continue;
+      else if(c instanceof ConstantUtf8) continue;
+      else System.out.println(c);
+    }
+
+    for(Method m : methods){
+      // Optimisation body should be in this submethod
+      System.out.println(m);
+      optimize_method(cgen, cpgen, m);
+    }
+
+
 		this.optimized = gen.getJavaClass();
 	}
 
-	
 	public void write(String optimisedFilePath)
 	{
 		this.optimize();
