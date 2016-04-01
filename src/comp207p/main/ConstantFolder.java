@@ -16,13 +16,18 @@ import org.apache.bcel.classfile.ConstantPool;
 import org.apache.bcel.classfile.JavaClass;
 import org.apache.bcel.classfile.LineNumberTable;
 import org.apache.bcel.classfile.Method;
+import org.apache.bcel.generic.ArithmeticInstruction;
 import org.apache.bcel.generic.ClassGen;
 import org.apache.bcel.generic.ConstantPoolGen;
+import org.apache.bcel.generic.ConstantPushInstruction;
+import org.apache.bcel.generic.ConversionInstruction;
 import org.apache.bcel.generic.InstructionHandle;
 import org.apache.bcel.generic.InstructionList;
-import org.apache.bcel.util.InstructionFinder;
+import org.apache.bcel.generic.LDC;
+import org.apache.bcel.generic.LDC2_W;
 import org.apache.bcel.generic.MethodGen;
 import org.apache.bcel.generic.TargetLostException;
+import org.apache.bcel.util.InstructionFinder;
 
 
 
@@ -30,6 +35,7 @@ public class ConstantFolder
 {
 	ClassParser parser = null;
 	ClassGen gen = null;
+  final String constantPush = "(ConstantPushInstruction|LDC|LDC2_W)";
 
 	JavaClass original = null;
 	JavaClass optimized = null;
@@ -65,20 +71,124 @@ public class ConstantFolder
       System.out.println(h);
     }
     System.out.println("================================================");
-    // https://commons.apache.org/proper/commons-bcel/apidocs/org/apache/bcel/generic/Instruction.html
-    // for list of all possible insructions to match against
-    // Regexp is case insensitive so explicit class names used
-    String constantRegExp = "ArithmeticInstruction";
-    System.out.println(f.search(constantRegExp));
-    Iterator it = f.search(constantRegExp);
-    int i = 0;
+    simple_fold_optimisation(cpgen, f, il);
+    handles = il.getInstructionHandles();
+    System.out.println("================================================");
+    System.out.println("Optimised instructions:");
+    for(InstructionHandle h : handles){
+      System.out.println(h);
+    }
+    System.out.println("================================================");
+  }
+
+  private void optimise_conversions(ConstantPoolGen cpgen, InstructionFinder f, InstructionList il){
+    // Delete conversions only for constants from the pool
+    String conversionRegExp = constantPush + " " + "(ConversionInstruction)*" + " " +
+                              constantPush + " " + "(ConversionInstruction)*" + " " +
+                              "ArithmeticInstruction";
+    Iterator it = f.search(conversionRegExp);
+    System.out.println(conversionRegExp);
     while(it.hasNext()){
       InstructionHandle[] matches = (InstructionHandle[]) it.next();
       for(InstructionHandle h : matches){
+          if(h.getInstruction() instanceof ConversionInstruction){
+            try {
+              il.delete(h);
+              System.out.println("Deleted conversion");
+            } catch (TargetLostException e){
+              e.printStackTrace();
+            }
+          }
+      }
+    }
+  }
+
+  private void optimise_arithmetic(ConstantPoolGen cpgen, InstructionFinder f, InstructionList il){
+    // Conversions optimised earlier
+    String simpleRegExp = constantPush + " " +
+                          constantPush + " " +
+                          "ArithmeticInstruction";
+    Iterator it = f.search(simpleRegExp);
+    int i = 0;
+    while(it.hasNext()){
+      InstructionHandle[] matches = (InstructionHandle[]) it.next();
+      System.out.println("Optimisable instructions found:");
+      for(InstructionHandle h : matches){
         System.out.println(h);
       }
+
+      LDC left = (LDC) matches[0].getInstruction();
+      LDC right = (LDC) matches[1].getInstruction();
+      ArithmeticInstruction op = (ArithmeticInstruction) matches[2].getInstruction();
+
+      System.out.format("%s:%s %s %s:%s\n", left.getType(cpgen), left.getValue(cpgen),
+          op, right.getType(cpgen), right.getValue(cpgen));
+      String opSig = op.getType(cpgen).getSignature();
+      if(opSig.equals("D")){
+        //op is double
+        ;
+      }
+      else if(opSig.equals("F")){
+        //op is float
+        ;
+      }
+      else if(opSig.equals("L")){
+        //op is long
+        ;
+      }
+      else if(opSig.equals("I")){
+        //op is int
+        ;
+      }
+
+      // Need to resolve type of operation
+      //
+
       if(i++ == 10) break;
     }
+  }
+
+  private void simple_fold_optimisation(ConstantPoolGen cpgen, InstructionFinder f, InstructionList il){
+    // Constant folding for int, long, float, double in bytecode
+    // constant pool. Provided an unoptimised constant pool
+
+    // https://commons.apache.org/proper/commons-bcel/apidocs/org/apache/bcel/generic/Instruction.html
+    // for list of all possible insructions to match against
+    // Regexp is case insensitive so explicit class names used, also {2}
+    // does not work for repeating regex
+    //
+    //Regex explanation:
+    // ConstantPushInstruction - Push a literal onto the stack (byte, short)
+    // LDC                     - Push item from constant pool
+    // LDC2_W                  - Push long or double from constant pool
+    // ArithmeticInstruction   -
+    //
+    // In Java: Double > Flaot > Long > Int, so that
+    // byte -> byte -> int
+    // int -> int -> int
+    // double -> byte -> double
+    // etc.
+
+    System.out.println("================================================");
+    System.out.println("Scanning for optimisations");
+    System.out.println("================================================");
+    optimise_conversions(cpgen, f, il);
+    // Assumption: conversion could happen from loaded constants
+  }
+
+  private void constant_variable_folding(){
+    // Optimise uses of local variables of type int, long, float,
+    // double, whose value does not change throughout the scope of the
+    // method -> after declaration, variable is not reassigned. Need to
+    // propogate THROUGHOUT the method.
+    return;
+  }
+  private void dynamic_variable_folding(){
+    // Optimise uses of local variables of int, long,float, and double,
+    // whose value will be reassinged with a different constant number
+    // during the scope of the method. Value needs to propagate, but for
+    // specific intervals. (assignment <-> reassignment)
+    return;
   }
 
 	public void optimize()
@@ -116,7 +226,6 @@ public class ConstantFolder
       // Optimisation body should be in this submethod
       System.out.println("================================================");
       System.out.println("Optimize method: '" + m + "' ?");
-      System.out.println("1 --> yes; 0 --> no");
       System.out.println("================================================");
       n = reader.nextInt();
       if(n == 0) continue;
