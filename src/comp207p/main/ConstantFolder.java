@@ -57,12 +57,10 @@ public class ConstantFolder
     }
 
 
-    // To manipulate the method we need a MethodGen, an InstructionList, and
-    // an InstructionFinder
+    // To manipulate the method we need a MethodGen, and an InstructionList
 
     MethodGen mGen = new MethodGen(method, cgen.getClassName(), cpgen);
     InstructionList il = new InstructionList(method.getCode().getCode());
-    InstructionFinder f = new InstructionFinder(il);
 
     InstructionHandle[] handles = il.getInstructionHandles();
     System.out.println("================================================");
@@ -71,7 +69,7 @@ public class ConstantFolder
       System.out.println(h);
     }
     System.out.println("================================================");
-    simple_fold_optimisation(cpgen, f, il);
+    simple_fold_optimisation(cpgen, il);
     handles = il.getInstructionHandles();
     System.out.println("================================================");
     System.out.println("Optimised instructions:");
@@ -81,8 +79,9 @@ public class ConstantFolder
     System.out.println("================================================");
   }
 
-  private void optimise_conversions(ConstantPoolGen cpgen, InstructionFinder f, InstructionList il){
+  private void optimise_conversions(ConstantPoolGen cpgen, InstructionList il){
     // Delete conversions only for constants from the pool
+    InstructionFinder f = new InstructionFinder(il);
     String conversionRegExp = constantPush + " " + "(ConversionInstruction)*" + " " +
                               constantPush + " " + "(ConversionInstruction)*" + " " +
                               "ArithmeticInstruction";
@@ -103,11 +102,25 @@ public class ConstantFolder
     }
   }
 
-  private void optimise_arithmetic(ConstantPoolGen cpgen, InstructionFinder f, InstructionList il){
-    // Conversions optimised earlier
+  private void optimise_arithmetic(ConstantPoolGen cpgen, InstructionList il){
+    // Since conversions are removed we should now have input in the
+    // form push push op
+    // 1. Find values in form push push operation
+    // 2. Extract values from stack variables
+    // 3. Find type of operation
+    // 4. Compute new value of type of operation result
+    // 5. Check if constant pool values used elsewhere, if not remove
+    // them
+    // 6. Remove pushes and operation from instruction list
+    // 7. Add new push of constant pool value to instruction list
+    // 8. Regenerate InstructionFinder f and repeat (new patterns may
+    // have emerged).
+
+    InstructionFinder f = new InstructionFinder(il);
     String simpleRegExp = constantPush + " " +
                           constantPush + " " +
                           "ArithmeticInstruction";
+    System.out.println(simpleRegExp);
     Iterator it = f.search(simpleRegExp);
     int i = 0;
     while(it.hasNext()){
@@ -120,7 +133,6 @@ public class ConstantFolder
       LDC left = (LDC) matches[0].getInstruction();
       LDC right = (LDC) matches[1].getInstruction();
       ArithmeticInstruction op = (ArithmeticInstruction) matches[2].getInstruction();
-
       System.out.format("%s:%s %s %s:%s\n", left.getType(cpgen), left.getValue(cpgen),
           op, right.getType(cpgen), right.getValue(cpgen));
       String opSig = op.getType(cpgen).getSignature();
@@ -148,7 +160,7 @@ public class ConstantFolder
     }
   }
 
-  private void simple_fold_optimisation(ConstantPoolGen cpgen, InstructionFinder f, InstructionList il){
+  private void simple_fold_optimisation(ConstantPoolGen cpgen, InstructionList il){
     // Constant folding for int, long, float, double in bytecode
     // constant pool. Provided an unoptimised constant pool
 
@@ -172,7 +184,10 @@ public class ConstantFolder
     System.out.println("================================================");
     System.out.println("Scanning for optimisations");
     System.out.println("================================================");
-    optimise_conversions(cpgen, f, il);
+    // This needs to be the loop -> figure out how later, regex match on
+    // first match
+    optimise_conversions(cpgen, il);
+    optimise_arithmetic(cpgen, il);
     // Assumption: conversion could happen from loaded constants
   }
 
