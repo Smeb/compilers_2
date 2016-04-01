@@ -21,9 +21,11 @@ import org.apache.bcel.generic.ClassGen;
 import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.ConstantPushInstruction;
 import org.apache.bcel.generic.ConversionInstruction;
+import org.apache.bcel.generic.Instruction;
 import org.apache.bcel.generic.InstructionHandle;
 import org.apache.bcel.generic.InstructionList;
 import org.apache.bcel.generic.LDC;
+import org.apache.bcel.generic.LDC_W;
 import org.apache.bcel.generic.LDC2_W;
 import org.apache.bcel.generic.MethodGen;
 import org.apache.bcel.generic.TargetLostException;
@@ -51,7 +53,7 @@ public class ConstantFolder
 		}
 	}
 
-  private void optimize_method(ClassGen cgen, ConstantPoolGen cpgen, Method method){
+  private void optimise_method(ClassGen cgen, ConstantPoolGen cpgen, Method method){
     if(method == null){
       return;
     }
@@ -69,7 +71,10 @@ public class ConstantFolder
       System.out.println(h);
     }
     System.out.println("================================================");
-    simple_fold_optimisation(cpgen, il);
+    boolean optimised = false;
+    do {
+      simple_fold_optimisation(cpgen, il);
+    } while(optimised);
     handles = il.getInstructionHandles();
     System.out.println("================================================");
     System.out.println("Optimised instructions:");
@@ -79,8 +84,9 @@ public class ConstantFolder
     System.out.println("================================================");
   }
 
-  private void optimise_conversions(ConstantPoolGen cpgen, InstructionList il){
+  private boolean optimise_conversions(ConstantPoolGen cpgen, InstructionList il){
     // Delete conversions only for constants from the pool
+    boolean optimised = false;
     InstructionFinder f = new InstructionFinder(il);
     String conversionRegExp = constantPush + " " + "(ConversionInstruction)*" + " " +
                               constantPush + " " + "(ConversionInstruction)*" + " " +
@@ -93,16 +99,18 @@ public class ConstantFolder
           if(h.getInstruction() instanceof ConversionInstruction){
             try {
               il.delete(h);
-              System.out.println("Deleted conversion");
             } catch (TargetLostException e){
               e.printStackTrace();
             }
           }
       }
+    optimised = true;
     }
+    return optimised;
   }
 
-  private void optimise_arithmetic(ConstantPoolGen cpgen, InstructionList il){
+  private boolean optimise_arithmetic(ConstantPoolGen cpgen, InstructionList il){
+    boolean optimised = false;
     // Since conversions are removed we should now have input in the
     // form push push op
     // 1. Find values in form push push operation
@@ -121,106 +129,123 @@ public class ConstantFolder
                           constantPush + " " +
                           "ArithmeticInstruction";
     System.out.println(simpleRegExp);
-    Iterator it = f.search(simpleRegExp);
-    int i = 0;
-    while(it.hasNext()){
-      InstructionHandle[] matches = (InstructionHandle[]) it.next();
+
+    InstructionHandle[] matches = null;
+    for(Iterator it = f.search(simpleRegExp); it.hasNext();){
+      optimised = true;
+      matches = (InstructionHandle[]) it.next();
       System.out.println("Optimisable instructions found:");
       for(InstructionHandle h : matches){
         System.out.println(h);
       }
 
-      LDC left = (LDC) matches[0].getInstruction();
-      LDC right = (LDC) matches[1].getInstruction();
+      Instruction left_i =  matches[0].getInstruction();
+      Instruction right_i =  matches[1].getInstruction();
+      Number left_v = get_value(cpgen, left_i);
+      Number right_v = get_value(cpgen, right_i);
       ArithmeticInstruction op = (ArithmeticInstruction) matches[2].getInstruction();
-      System.out.format("%s:%s %s %s:%s\n", left.getType(cpgen), left.getValue(cpgen),
-          op, right.getType(cpgen), right.getValue(cpgen));
       String opSig = op.getType(cpgen).getSignature();
-      if(opSig.equals("D")){
-        //op is double
-        ;
-      }
-      else if(opSig.equals("F")){
-        //op is float
-        ;
-      }
-      else if(opSig.equals("L")){
-        //op is long
-        ;
-      }
-      else if(opSig.equals("I")){
-        //op is int
-        ;
-      }
+      Double result = evaluate_op(left_v, right_v, op);
 
-      // Need to resolve type of operation
-      //
+      // Change instruction handle to result type (in case there were
+      // conversions)
+      if(opSig.equals("D"))
+        matches[0].setInstruction(new LDC2_W(cpgen.addDouble(result)));
+      else if(opSig.equals("F"))
+        matches[0].setInstruction(new LDC(cpgen.addFloat(result.floatValue())));
+      else if(opSig.equals("J"))
+        matches[0].setInstruction(new LDC2_W(cpgen.addLong(result.longValue())));
+      else if(opSig.equals("I"))
+        matches[0].setInstruction(new LDC(cpgen.addInteger(result.intValue())));
 
-      if(i++ == 10) break;
+      // Delete unneeded instruction handles
+      try {
+        il.delete(matches[1], matches[2]);
+      } catch (TargetLostException e) {
+        e.printStackTrace();
+      }
+    }
+    return optimised;
+  }
+
+  private Double evaluate_op(Number l, Number r, ArithmeticInstruction op) throws RuntimeException {
+    String op_s = op.getClass().getSimpleName().substring(1, 4);
+    if(op_s.equals("ADD")){
+      return l.doubleValue() + r.doubleValue();
+    }
+    else if(op_s.equals("SUB")){
+      return l.doubleValue() - r.doubleValue();
+    }
+    else if(op_s.equals("MUL")){
+      return l.doubleValue() * r.doubleValue();
+    }
+    else if(op_s.equals("DIV")){
+      return l.doubleValue() / r.doubleValue();
+    }
+    else {
+      throw new RuntimeException("Operation: " + op.getClass() + " not recognized");
     }
   }
 
-  private void simple_fold_optimisation(ConstantPoolGen cpgen, InstructionList il){
-    // Constant folding for int, long, float, double in bytecode
-    // constant pool. Provided an unoptimised constant pool
+  private Number get_value(ConstantPoolGen cpgen, Instruction instruction){
+    if(instruction instanceof ConstantPushInstruction){
+      return (Number) ((ConstantPushInstruction) instruction).getValue();
+    }
+    else if(instruction instanceof LDC){
+      return (Number) ((LDC) instruction).getValue(cpgen);
+    }
+    else if(instruction instanceof LDC2_W){
+      return (Number) ((LDC2_W) instruction).getValue(cpgen);
+    }
+    else{
+      System.out.println("Instruction: " + instruction + " not recognised");
+      return -1;
+    }
+  }
 
-    // https://commons.apache.org/proper/commons-bcel/apidocs/org/apache/bcel/generic/Instruction.html
-    // for list of all possible insructions to match against
-    // Regexp is case insensitive so explicit class names used, also {2}
-    // does not work for repeating regex
-    //
-    //Regex explanation:
-    // ConstantPushInstruction - Push a literal onto the stack (byte, short)
-    // LDC                     - Push item from constant pool
-    // LDC2_W                  - Push long or double from constant pool
-    // ArithmeticInstruction   -
-    //
-    // In Java: Double > Flaot > Long > Int, so that
-    // byte -> byte -> int
-    // int -> int -> int
-    // double -> byte -> double
-    // etc.
-
+  private boolean simple_fold_optimisation(ConstantPoolGen cpgen, InstructionList il){
+    boolean optimised = false;
     System.out.println("================================================");
-    System.out.println("Scanning for optimisations");
+    System.out.println("Scanning for simple fold optimisations");
     System.out.println("================================================");
     // This needs to be the loop -> figure out how later, regex match on
     // first match
-    optimise_conversions(cpgen, il);
-    optimise_arithmetic(cpgen, il);
+    optimised |= optimise_conversions(cpgen, il);
+    optimised |= optimise_arithmetic(cpgen, il);
     // Assumption: conversion could happen from loaded constants
+    return optimised;
   }
 
-  private void constant_variable_folding(){
+  private boolean constant_variable_folding(){
     // Optimise uses of local variables of type int, long, float,
     // double, whose value does not change throughout the scope of the
     // method -> after declaration, variable is not reassigned. Need to
     // propogate THROUGHOUT the method.
-    return;
+    return false;
   }
-  private void dynamic_variable_folding(){
+  private boolean dynamic_variable_folding(){
     // Optimise uses of local variables of int, long,float, and double,
     // whose value will be reassinged with a different constant number
     // during the scope of the method. Value needs to propagate, but for
     // specific intervals. (assignment <-> reassignment)
-    return;
+    return false;
   }
 
 	public void optimize()
 	{
     Scanner reader = new Scanner(System.in);
     System.out.println("================================================");
-    System.out.println("Optimize class: '" + original.getClassName() + "' ?");
+    System.out.println("Optimise class: '" + original.getClassName() + "' ?");
     System.out.println("1 --> yes; 0 --> no");
     System.out.println("================================================");
     int n = reader.nextInt();
+		ClassGen cgen = new ClassGen(original);
     if(n == 0){
-      this.optimized = gen.getJavaClass();
+      this.optimized = cgen.getJavaClass();
       return;
     }
 
 
-		ClassGen cgen = new ClassGen(original);
 		ConstantPoolGen cpgen = cgen.getConstantPool();
     ConstantPool cp = cpgen.getConstantPool();
     Constant[] constants = cp.getConstantPool();
@@ -239,16 +264,12 @@ public class ConstantFolder
 
     for(Method m : methods){
       // Optimisation body should be in this submethod
-      System.out.println("================================================");
-      System.out.println("Optimize method: '" + m + "' ?");
-      System.out.println("================================================");
-      n = reader.nextInt();
-      if(n == 0) continue;
-      optimize_method(cgen, cpgen, m);
+      boolean optimised = true;
+      optimise_method(cgen, cpgen, m);
     }
 
 
-		this.optimized = gen.getJavaClass();
+		this.optimized = cgen.getJavaClass();
 	}
 
 	public void write(String optimisedFilePath)
@@ -257,7 +278,7 @@ public class ConstantFolder
 
 		try {
 			FileOutputStream out = new FileOutputStream(new File(optimisedFilePath));
-			this.optimized.dump(out);
+      this.optimized.dump(out);
 		} catch (FileNotFoundException e) {
 			// Auto-generated catch block
 			e.printStackTrace();
