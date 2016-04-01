@@ -4,6 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.Scanner;
 
 import org.apache.bcel.classfile.ClassParser;
 import org.apache.bcel.classfile.Code;
@@ -47,7 +48,9 @@ public class ConstantFolder
   public void optimize_method(ClassGen cgen, ConstantPoolGen cpgen, Method method){
     Code methodCode = method.getCode();
     if(methodCode != null){
+      System.out.println("================================================");
       System.out.println(methodCode);
+      System.out.println("================================================");
     }
 
     // Initialise a new MethodGen using the method as the prototype
@@ -58,12 +61,26 @@ public class ConstantFolder
 
 	public void optimize()
 	{
+    Scanner reader = new Scanner(System.in);
+    System.out.println("================================================");
+    System.out.println("Optimize class: '" + original.getClassName() + "' ?");
+    System.out.println("0 --> no");
+    System.out.println("================================================");
+    int n = reader.nextInt();
+    if(n == 0){
+      this.optimized = gen.getJavaClass();
+      return;
+    }
+
+
 		ClassGen cgen = new ClassGen(original);
 		ConstantPoolGen cpgen = cgen.getConstantPool();
     ConstantPool cp = cpgen.getConstantPool();
     Constant[] constants = cp.getConstantPool();
     Method[] methods = cgen.getMethods();
 
+    System.out.println("================================================");
+    System.out.println("Class constant pool");
     for(Constant c : constants){
       // Debugging to print out constants that we care about
       if(c == null) continue;
@@ -71,10 +88,16 @@ public class ConstantFolder
       else if(c instanceof ConstantUtf8) continue;
       else System.out.println(c);
     }
+    System.out.println("================================================");
 
     for(Method m : methods){
       // Optimisation body should be in this submethod
-      System.out.println(m);
+      System.out.println("================================================");
+      System.out.println("Optimize method: '" + m + "' ?");
+      System.out.println("0 --> no");
+      System.out.println("================================================");
+      n = reader.nextInt();
+      if(n == 0) break;
       optimize_method(cgen, cpgen, m);
     }
 
