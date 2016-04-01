@@ -45,18 +45,40 @@ public class ConstantFolder
 		}
 	}
 
-  public void optimize_method(ClassGen cgen, ConstantPoolGen cpgen, Method method){
-    Code methodCode = method.getCode();
-    if(methodCode != null){
-      System.out.println("================================================");
-      System.out.println(methodCode);
-      System.out.println("================================================");
+  private void optimize_method(ClassGen cgen, ConstantPoolGen cpgen, Method method){
+    if(method == null){
+      return;
     }
 
-    // Initialise a new MethodGen using the method as the prototype
+
+    // To manipulate the method we need a MethodGen, an InstructionList, and
+    // an InstructionFinder
+
     MethodGen mGen = new MethodGen(method, cgen.getClassName(), cpgen);
-    InstructionList il = new InstructionList(methodCode.getCode());
-    InstructionFinder ifind = new InstructionFinder(il);
+    InstructionList il = new InstructionList(method.getCode().getCode());
+    InstructionFinder f = new InstructionFinder(il);
+
+    InstructionHandle[] handles = il.getInstructionHandles();
+    System.out.println("================================================");
+    System.out.println("Method instructions:");
+    for(InstructionHandle h : handles){
+      System.out.println(h);
+    }
+    System.out.println("================================================");
+    // https://commons.apache.org/proper/commons-bcel/apidocs/org/apache/bcel/generic/Instruction.html
+    // for list of all possible insructions to match against
+    // Regexp is case insensitive so explicit class names used
+    String constantRegExp = "ArithmeticInstruction";
+    System.out.println(f.search(constantRegExp));
+    Iterator it = f.search(constantRegExp);
+    int i = 0;
+    while(it.hasNext()){
+      InstructionHandle[] matches = (InstructionHandle[]) it.next();
+      for(InstructionHandle h : matches){
+        System.out.println(h);
+      }
+      if(i++ == 10) break;
+    }
   }
 
 	public void optimize()
@@ -64,7 +86,7 @@ public class ConstantFolder
     Scanner reader = new Scanner(System.in);
     System.out.println("================================================");
     System.out.println("Optimize class: '" + original.getClassName() + "' ?");
-    System.out.println("0 --> no");
+    System.out.println("1 --> yes; 0 --> no");
     System.out.println("================================================");
     int n = reader.nextInt();
     if(n == 0){
@@ -94,10 +116,10 @@ public class ConstantFolder
       // Optimisation body should be in this submethod
       System.out.println("================================================");
       System.out.println("Optimize method: '" + m + "' ?");
-      System.out.println("0 --> no");
+      System.out.println("1 --> yes; 0 --> no");
       System.out.println("================================================");
       n = reader.nextInt();
-      if(n == 0) break;
+      if(n == 0) continue;
       optimize_method(cgen, cpgen, m);
     }
 
