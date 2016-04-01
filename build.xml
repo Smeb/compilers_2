@@ -60,7 +60,7 @@
   <!-- build optimisation code-->
   <target name="compile.source" description="Compile module part2; production classes">
     <mkdir dir="${classes.dir}"/>
-    <javac destdir="${classes.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" fork="true" includeantruntime="false">
+    <javac destdir="${classes.dir}" debug="true" nowarn="${compiler.generate.no.warnings}" fork="true" includeantruntime="false">
       <classpath refid="library.classpath"/>
       <src refid="sources.dir"/>
       <patternset refid="ignored.files"/>

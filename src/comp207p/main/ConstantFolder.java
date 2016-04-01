@@ -39,6 +39,8 @@ public class ConstantFolder
 	ClassGen gen = null;
   final String constantPush = "(ConstantPushInstruction|LDC|LDC2_W)";
 
+  boolean _DEBUG = true;
+
 	JavaClass original = null;
 	JavaClass optimized = null;
 
@@ -58,30 +60,32 @@ public class ConstantFolder
       return;
     }
 
-
     // To manipulate the method we need a MethodGen, and an InstructionList
 
     MethodGen mGen = new MethodGen(method, cgen.getClassName(), cpgen);
     InstructionList il = new InstructionList(method.getCode().getCode());
 
-    InstructionHandle[] handles = il.getInstructionHandles();
-    System.out.println("================================================");
-    System.out.println("Method instructions:");
-    for(InstructionHandle h : handles){
-      System.out.println(h);
+    if(_DEBUG){
+      System.out.println("Method: " + method);
+      System.out.println("================================================");
+      System.out.println("Pre-optimisation instructions:");
+      printInstructions(il);
+      System.out.println("================================================");
     }
-    System.out.println("================================================");
-    boolean optimised = false;
+
+    boolean optimised;
     do {
-      simple_fold_optimisation(cpgen, il);
+      optimised = false;
+      optimised |= simple_fold_optimisation(cpgen, il);
     } while(optimised);
-    handles = il.getInstructionHandles();
-    System.out.println("================================================");
-    System.out.println("Optimised instructions:");
-    for(InstructionHandle h : handles){
-      System.out.println(h);
+
+    if(_DEBUG){
+      System.out.println("Optimised instructions:");
+      printInstructions(il);
+      System.out.println("================================================");
     }
-    System.out.println("================================================");
+
+    cgen.replaceMethod(method, mGen.getMethod());
   }
 
   private boolean optimise_conversions(ConstantPoolGen cpgen, InstructionList il){
@@ -92,7 +96,6 @@ public class ConstantFolder
                               constantPush + " " + "(ConversionInstruction)*" + " " +
                               "ArithmeticInstruction";
     Iterator it = f.search(conversionRegExp);
-    System.out.println(conversionRegExp);
     while(it.hasNext()){
       InstructionHandle[] matches = (InstructionHandle[]) it.next();
       for(InstructionHandle h : matches){
@@ -128,15 +131,13 @@ public class ConstantFolder
     String simpleRegExp = constantPush + " " +
                           constantPush + " " +
                           "ArithmeticInstruction";
-    System.out.println(simpleRegExp);
 
     InstructionHandle[] matches = null;
     for(Iterator it = f.search(simpleRegExp); it.hasNext();){
       optimised = true;
       matches = (InstructionHandle[]) it.next();
-      System.out.println("Optimisable instructions found:");
-      for(InstructionHandle h : matches){
-        System.out.println(h);
+      if(_DEBUG){
+        printMatches(matches);
       }
 
       Instruction left_i =  matches[0].getInstruction();
@@ -205,14 +206,8 @@ public class ConstantFolder
 
   private boolean simple_fold_optimisation(ConstantPoolGen cpgen, InstructionList il){
     boolean optimised = false;
-    System.out.println("================================================");
-    System.out.println("Scanning for simple fold optimisations");
-    System.out.println("================================================");
-    // This needs to be the loop -> figure out how later, regex match on
-    // first match
     optimised |= optimise_conversions(cpgen, il);
     optimised |= optimise_arithmetic(cpgen, il);
-    // Assumption: conversion could happen from loaded constants
     return optimised;
   }
 
@@ -287,4 +282,19 @@ public class ConstantFolder
 			e.printStackTrace();
 		}
 	}
+
+  private void printMatches(InstructionHandle[] matches){
+    System.out.println("Optimisable instructions found:");
+    for(InstructionHandle h : matches){
+      System.out.println(h);
+    }
+    System.out.println("================================================");
+  }
+
+  private void printInstructions(InstructionList il){
+    InstructionHandle[] handles = il.getInstructionHandles();
+    for(InstructionHandle h : handles){
+      System.out.println(h);
+    }
+  }
 }
