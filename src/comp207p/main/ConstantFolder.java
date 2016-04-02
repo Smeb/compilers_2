@@ -27,6 +27,7 @@ import org.apache.bcel.generic.InstructionList;
 import org.apache.bcel.generic.LDC;
 import org.apache.bcel.generic.LDC_W;
 import org.apache.bcel.generic.LDC2_W;
+import org.apache.bcel.generic.LoadInstruction;
 import org.apache.bcel.generic.MethodGen;
 import org.apache.bcel.generic.TargetLostException;
 import org.apache.bcel.util.InstructionFinder;
@@ -37,7 +38,8 @@ public class ConstantFolder
 {
 	ClassParser parser = null;
 	ClassGen gen = null;
-  final String constantPush = "(ConstantPushInstruction|LDC|LDC2_W)";
+  final String push_value = "(ConstantPushInstruction|CPInstruction|LoadInstruction)";
+  final String comparison_instructions = "(LCMP|DCMPL|DCMPG|FCMPL|FCMPG) (IfInstruction ICONST GOTO ICONST)+";
 
   boolean _DEBUG = true;
 
@@ -68,19 +70,21 @@ public class ConstantFolder
       System.out.println("Method: " + method);
       System.out.println("================================================");
       System.out.println("Pre-optimisation instructions:");
-      printInstructions(il);
+      print_instructions(il);
       System.out.println("================================================");
     }
 
     boolean optimised;
     do {
       optimised = false;
-      optimised |= simple_fold_optimisation(cpgen, il);
+      optimised |= optimise_conversions(cpgen, il); // All conversion instructions should load from constant pool
+      optimised |= optimise_arithmetic(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
+      optimised |= optimise_comparisons(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
     } while(optimised);
 
     if(_DEBUG){
       System.out.println("Optimised instructions:");
-      printInstructions(il);
+      print_instructions(il);
       System.out.println("================================================");
     }
 
@@ -103,13 +107,14 @@ public class ConstantFolder
   }
 
   private boolean optimise_conversions(ConstantPoolGen cpgen, InstructionList il){
-    // Delete conversions only for constants from the pool
+    // Delete conversions only for constants from the pool when the
+    // conversion precedes an operation taking two stack inputs
     boolean optimised = false;
     InstructionFinder f = new InstructionFinder(il);
-    String conversionRegExp = constantPush + " " + "(ConversionInstruction)*" + " " +
-                              constantPush + " " + "(ConversionInstruction)*" + " " +
-                              "ArithmeticInstruction";
-    Iterator it = f.search(conversionRegExp);
+    String conversion_regex = push_value + " " + "(ConversionInstruction)*" + " " +
+                              push_value + " " + "(ConversionInstruction)*" + " " +
+                              "(ArithmeticInstruction|" + comparison_instructions + ")";
+    Iterator it = f.search(conversion_regex);
     while(it.hasNext()){
       InstructionHandle[] matches = (InstructionHandle[]) it.next();
       for(InstructionHandle h : matches){
@@ -122,6 +127,23 @@ public class ConstantFolder
           }
       }
     optimised = true;
+    }
+    return optimised;
+  }
+
+  private boolean optimise_comparisons(ConstantPoolGen cpgen, InstructionList il){
+    boolean optimised = false;
+    InstructionFinder f = new InstructionFinder(il);
+    String comparison_regex = push_value +
+                              push_value +
+                              comparison_instructions;
+    InstructionHandle[] matches = null;
+    for(Iterator it = f.search(comparison_regex); it.hasNext();){
+      matches = (InstructionHandle[]) it.next();
+      if(_DEBUG){
+        print_matches(matches);
+      }
+
     }
     return optimised;
   }
@@ -142,16 +164,16 @@ public class ConstantFolder
     // have emerged).
 
     InstructionFinder f = new InstructionFinder(il);
-    String simpleRegExp = constantPush + " " +
-                          constantPush + " " +
-                          "ArithmeticInstruction";
+    String arithmetic_regex = push_value + " " +
+                              push_value + " " +
+                              "ArithmeticInstruction";
 
     InstructionHandle[] matches = null;
-    for(Iterator it = f.search(simpleRegExp); it.hasNext();){
+    for(Iterator it = f.search(arithmetic_regex); it.hasNext();){
       optimised = true;
       matches = (InstructionHandle[]) it.next();
       if(_DEBUG){
-        printMatches(matches);
+        print_matches(matches);
       }
 
       Instruction left_i =  matches[0].getInstruction();
@@ -203,6 +225,18 @@ public class ConstantFolder
   }
 
   private Number get_value(ConstantPoolGen cpgen, Instruction instruction){
+    if(instruction instanceof LoadInstruction){
+      return get_load_value(cpgen, instruction);
+    }
+    // Else should be a constant value
+    return get_constant_value(cpgen, instruction);
+  }
+
+  private Number get_load_value(ConstantPoolGen cpgen, Instruction instruction){
+    throw new RuntimeException("Method get_load_value not implemented yet");
+  }
+
+  private Number get_constant_value(ConstantPoolGen cpgen, Instruction instruction){
     if(instruction instanceof ConstantPushInstruction){
       return (Number) ((ConstantPushInstruction) instruction).getValue();
     }
@@ -213,16 +247,8 @@ public class ConstantFolder
       return (Number) ((LDC2_W) instruction).getValue(cpgen);
     }
     else{
-      System.out.println("Instruction: " + instruction + " not recognised");
-      return -1;
+      throw new RuntimeException("Instruction: " + instruction + " not a constant push instruction");
     }
-  }
-
-  private boolean simple_fold_optimisation(ConstantPoolGen cpgen, InstructionList il){
-    boolean optimised = false;
-    optimised |= optimise_conversions(cpgen, il);
-    optimised |= optimise_arithmetic(cpgen, il);
-    return optimised;
   }
 
   private boolean constant_variable_folding(){
@@ -230,6 +256,14 @@ public class ConstantFolder
     // double, whose value does not change throughout the scope of the
     // method -> after declaration, variable is not reassigned. Need to
     // propogate THROUGHOUT the method.
+    //
+    // 1. Identify the assignment of the local variable
+    // 2. Identify loads of the local variable and fold them with
+    // operations
+    // 3. Needs to be done for potentially several variables
+    // simultaneously
+    // i.e b + a = constant C
+    // 4. Identify comparison and addition operations.
     return false;
   }
   private boolean dynamic_variable_folding(){
@@ -273,7 +307,6 @@ public class ConstantFolder
 
     for(Method m : methods){
       // Optimisation body should be in this submethod
-      boolean optimised = true;
       optimise_method(cgen, cpgen, m);
     }
 
@@ -297,7 +330,7 @@ public class ConstantFolder
 		}
 	}
 
-  private void printMatches(InstructionHandle[] matches){
+  private void print_matches(InstructionHandle[] matches){
     System.out.println("Optimisable instructions found:");
     for(InstructionHandle h : matches){
       System.out.println(h);
@@ -305,7 +338,7 @@ public class ConstantFolder
     System.out.println("================================================");
   }
 
-  private void printInstructions(InstructionList il){
+  private void print_instructions(InstructionList il){
     InstructionHandle[] handles = il.getInstructionHandles();
     for(InstructionHandle h : handles){
       System.out.println(h);
