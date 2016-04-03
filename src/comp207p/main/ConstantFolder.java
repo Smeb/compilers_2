@@ -21,6 +21,7 @@ import org.apache.bcel.generic.ClassGen;
 import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.ConstantPushInstruction;
 import org.apache.bcel.generic.ConversionInstruction;
+import org.apache.bcel.generic.LocalVariableInstruction;
 import org.apache.bcel.generic.Instruction;
 import org.apache.bcel.generic.InstructionHandle;
 import org.apache.bcel.generic.InstructionList;
@@ -29,6 +30,7 @@ import org.apache.bcel.generic.LDC_W;
 import org.apache.bcel.generic.LDC2_W;
 import org.apache.bcel.generic.LoadInstruction;
 import org.apache.bcel.generic.MethodGen;
+import org.apache.bcel.generic.StoreInstruction;
 import org.apache.bcel.generic.TargetLostException;
 import org.apache.bcel.util.InstructionFinder;
 
@@ -74,12 +76,21 @@ public class ConstantFolder
       System.out.println("================================================");
     }
 
+    MethodGen mgen = new MethodGen(
+        method.getAccessFlags(),
+        method.getReturnType(),
+        method.getArgumentTypes(),
+        null,
+        method.getName(),
+        cgen.getClassName(),
+        il,
+        cpgen);
+
     boolean optimised;
     do {
       optimised = false;
-      optimised |= optimise_conversions(cpgen, il); // All conversion instructions should load from constant pool
       optimised |= optimise_arithmetic(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
-      optimised |= optimise_comparisons(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
+      //optimised |= optimise_comparisons(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
     } while(optimised);
 
     if(_DEBUG){
@@ -91,44 +102,24 @@ public class ConstantFolder
     // Due to an unresolved bug with changing the instruction list of a
     // deep copied method it's easier to just create an entirely new
     // method
-    MethodGen mgen = new MethodGen(
-        method.getAccessFlags(),
-        method.getReturnType(),
-        method.getArgumentTypes(),
-        null,
-        method.getName(),
-        cgen.getClassName(),
-        il,
-        cpgen);
     il.setPositions(true);
     mgen.setMaxStack();
     mgen.setMaxLocals();
     cgen.replaceMethod(method, mgen.getMethod());
   }
 
-  private boolean optimise_conversions(ConstantPoolGen cpgen, InstructionList il){
+  private void optimise_conversions(InstructionList il, InstructionHandle[] matches){
     // Delete conversions only for constants from the pool when the
     // conversion precedes an operation taking two stack inputs
-    boolean optimised = false;
-    InstructionFinder f = new InstructionFinder(il);
-    String conversion_regex = push_value + " " + "(ConversionInstruction)*" + " " +
-                              push_value + " " + "(ConversionInstruction)*" + " " +
-                              "(ArithmeticInstruction|" + comparison_instructions + ")";
-    Iterator it = f.search(conversion_regex);
-    while(it.hasNext()){
-      InstructionHandle[] matches = (InstructionHandle[]) it.next();
-      for(InstructionHandle h : matches){
-          if(h.getInstruction() instanceof ConversionInstruction){
-            try {
-              il.delete(h);
-            } catch (TargetLostException e){
-              e.printStackTrace();
-            }
-          }
+    for(InstructionHandle h : matches){
+      if(h.getInstruction() instanceof ConversionInstruction){
+        try {
+          il.delete(h);
+        } catch (TargetLostException e){
+          e.printStackTrace();
+        }
       }
-    optimised = true;
     }
-    return optimised;
   }
 
   private boolean optimise_comparisons(ConstantPoolGen cpgen, InstructionList il){
@@ -143,7 +134,6 @@ public class ConstantFolder
       if(_DEBUG){
         print_matches(matches);
       }
-
     }
     return optimised;
   }
@@ -164,8 +154,8 @@ public class ConstantFolder
     // have emerged).
 
     InstructionFinder f = new InstructionFinder(il);
-    String arithmetic_regex = push_value + " " +
-                              push_value + " " +
+    String arithmetic_regex = push_value + " " + "(ConversionInstruction)*" +
+                              push_value + " " + "(ConversionInstruction)*" +
                               "ArithmeticInstruction";
 
     InstructionHandle[] matches = null;
@@ -175,11 +165,12 @@ public class ConstantFolder
       if(_DEBUG){
         print_matches(matches);
       }
-
-      Instruction left_i =  matches[0].getInstruction();
-      Instruction right_i =  matches[1].getInstruction();
-      Number left_v = get_value(cpgen, left_i);
-      Number right_v = get_value(cpgen, right_i);
+      if(matches.length > 3){
+        optimise_conversions(il, matches);
+        break;
+      }
+      Number left_v = get_value(cpgen, matches[0]);
+      Number right_v = get_value(cpgen, matches[1]);
       ArithmeticInstruction op = (ArithmeticInstruction) matches[2].getInstruction();
       String opSig = op.getType(cpgen).getSignature();
       Double result = evaluate_op(left_v, right_v, op);
@@ -224,16 +215,35 @@ public class ConstantFolder
     }
   }
 
-  private Number get_value(ConstantPoolGen cpgen, Instruction instruction){
-    if(instruction instanceof LoadInstruction){
-      return get_load_value(cpgen, instruction);
+  private Number get_value(ConstantPoolGen cpgen, InstructionHandle handle){
+    if(handle.getInstruction() instanceof LoadInstruction){
+      return get_load_value(cpgen, handle);
     }
     // Else should be a constant value
-    return get_constant_value(cpgen, instruction);
+    return get_constant_value(cpgen, handle.getInstruction());
   }
 
-  private Number get_load_value(ConstantPoolGen cpgen, Instruction instruction){
-    throw new RuntimeException("Method get_load_value not implemented yet");
+  private Number get_load_value(ConstantPoolGen cpgen, InstructionHandle handle){
+    // if load instruction found, need to find and resolve the most
+    // recent store instruction to the variable - we are not folding
+    // variable stores so this should always be fine
+
+    // Identify target variable
+    int index = ((LocalVariableInstruction) handle.getInstruction()).getIndex();
+    InstructionHandle store_value = find_store(handle, index).getPrev();
+
+    throw new RuntimeException();
+  }
+
+  private InstructionHandle find_store(InstructionHandle h, int index){
+    while((h = h.getPrev()) != null){
+      if(h.getInstruction() instanceof StoreInstruction ){
+        if(((StoreInstruction)h.getInstruction()).getIndex() == index){
+          return h;
+        }
+      }
+    }
+    throw new RuntimeException("Found dangling load instruction without store");
   }
 
   private Number get_constant_value(ConstantPoolGen cpgen, Instruction instruction){
