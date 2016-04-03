@@ -40,7 +40,7 @@ public class ConstantFolder
 {
 	ClassParser parser = null;
 	ClassGen gen = null;
-  final String push_value = "(ConstantPushInstruction|CPInstruction|LoadInstruction)";
+  final String push_value = "(ConstantPushInstruction|LoadInstruction|LDC|DLC2_W|)";
   final String comparison_instructions = "(LCMP|DCMPL|DCMPG|FCMPL|FCMPG) (IfInstruction ICONST GOTO ICONST)+";
 
   boolean _DEBUG = true;
