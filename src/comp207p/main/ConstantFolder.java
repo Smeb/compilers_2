@@ -43,7 +43,7 @@ public class ConstantFolder
 	ClassGen gen = null;
   final String load_instruction = "(ILOAD|LLOAD|FLOAD|DLOAD)"; // Ignore ALOAD - ALOAD loads object reference- ALOAD loads object references
   final String push_value = "(ConstantPushInstruction|"+ load_instruction + "|LDC|LDC2_W)";
-  final String comparison_instructions = "(LCMP|DCMPL|DCMPG|FCMPL|FCMPG) (IfInstruction ICONST GOTO ICONST)+";
+  final String comparison_instructions = "(LCMP|DCMPL|DCMPG|FCMPL|FCMPG) (IfInstruction ICONST GOTO ICONST)";
 
   boolean _DEBUG = true;
 
@@ -193,18 +193,18 @@ public class ConstantFolder
       Number left_v = get_value(cpgen, matches[0]);
       Number right_v = get_value(cpgen, matches[1]);
       ArithmeticInstruction op = (ArithmeticInstruction) matches[2].getInstruction();
-      String opSig = op.getType(cpgen).getSignature();
+      String op_sig = op.getType(cpgen).getSignature();
       Double result = evaluate_op(left_v, right_v, op);
 
       // Change instruction handle to result type (in case there were
       // conversions)
-      if(opSig.equals("D"))
+      if(op_sig.equals("D"))
         matches[0].setInstruction(new LDC2_W(cpgen.addDouble(result)));
-      else if(opSig.equals("F"))
+      else if(op_sig.equals("F"))
         matches[0].setInstruction(new LDC(cpgen.addFloat(result.floatValue())));
-      else if(opSig.equals("J"))
+      else if(op_sig.equals("J"))
         matches[0].setInstruction(new LDC2_W(cpgen.addLong(result.longValue())));
-      else if(opSig.equals("I"))
+      else if(op_sig.equals("I"))
         matches[0].setInstruction(new LDC(cpgen.addInteger(result.intValue())));
 
       // Delete unneeded instruction handles
