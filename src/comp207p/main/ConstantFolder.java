@@ -17,6 +17,7 @@ import org.apache.bcel.classfile.JavaClass;
 import org.apache.bcel.classfile.LineNumberTable;
 import org.apache.bcel.classfile.Method;
 import org.apache.bcel.generic.ArithmeticInstruction;
+import org.apache.bcel.generic.ASTORE;
 import org.apache.bcel.generic.ClassGen;
 import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.ConstantPushInstruction;
@@ -40,7 +41,8 @@ public class ConstantFolder
 {
 	ClassParser parser = null;
 	ClassGen gen = null;
-  final String push_value = "(ConstantPushInstruction|LoadInstruction|LDC|LDC2_W)";
+  final String load_instruction = "(ILOAD|LLOAD|FLOAD|DLOAD)"; // Ignore ALOAD - ALOAD loads object reference- ALOAD loads object references
+  final String push_value = "(ConstantPushInstruction|"+ load_instruction + "|LDC|LDC2_W)";
   final String comparison_instructions = "(LCMP|DCMPL|DCMPG|FCMPL|FCMPG) (IfInstruction ICONST GOTO ICONST)+";
 
   boolean _DEBUG = true;
@@ -58,6 +60,23 @@ public class ConstantFolder
 			e.printStackTrace();
 		}
 	}
+
+	public void write(String optimisedFilePath)
+	{
+		this.optimize();
+
+		try {
+			FileOutputStream out = new FileOutputStream(new File(optimisedFilePath));
+      this.optimized.dump(out);
+		} catch (FileNotFoundException e) {
+			// Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
 
   private void optimise_method(ClassGen cgen, ConstantPoolGen cpgen, Method method){
     if(method == null){
@@ -169,6 +188,8 @@ public class ConstantFolder
         optimise_conversions(il, matches);
         break;
       }
+
+      // TODO: Catch / avoid runtime exceptions
       Number left_v = get_value(cpgen, matches[0]);
       Number right_v = get_value(cpgen, matches[1]);
       ArithmeticInstruction op = (ArithmeticInstruction) matches[2].getInstruction();
@@ -191,6 +212,11 @@ public class ConstantFolder
         il.delete(matches[1], matches[2]);
       } catch (TargetLostException e) {
         e.printStackTrace();
+      }
+
+      if(optimised){
+        f.reread();
+        it = f.search(arithmetic_regex);
       }
     }
     return optimised;
@@ -230,12 +256,15 @@ public class ConstantFolder
 
     // Identify target variable
     int index = ((LocalVariableInstruction) handle.getInstruction()).getIndex();
-    InstructionHandle store_value = find_store(handle, index).getPrev();
-
-    throw new RuntimeException();
+    InstructionHandle store_handle = find_store_handle(handle, index);
+    Instruction store_instruction = store_handle.getInstruction();
+    if(store_instruction instanceof ASTORE){
+      throw new RuntimeException("Array storage and realisation not in the scope of these optimisations");
+    }
+    else return get_constant_value(cpgen, store_handle.getPrev().getInstruction());
   }
 
-  private InstructionHandle find_store(InstructionHandle h, int index){
+  private InstructionHandle find_store_handle(InstructionHandle h, int index){
     while((h = h.getPrev()) != null){
       if(h.getInstruction() instanceof StoreInstruction ){
         if(((StoreInstruction)h.getInstruction()).getIndex() == index){
@@ -259,29 +288,6 @@ public class ConstantFolder
     else{
       throw new RuntimeException("Instruction: " + instruction + " not a constant push instruction");
     }
-  }
-
-  private boolean constant_variable_folding(){
-    // Optimise uses of local variables of type int, long, float,
-    // double, whose value does not change throughout the scope of the
-    // method -> after declaration, variable is not reassigned. Need to
-    // propogate THROUGHOUT the method.
-    //
-    // 1. Identify the assignment of the local variable
-    // 2. Identify loads of the local variable and fold them with
-    // operations
-    // 3. Needs to be done for potentially several variables
-    // simultaneously
-    // i.e b + a = constant C
-    // 4. Identify comparison and addition operations.
-    return false;
-  }
-  private boolean dynamic_variable_folding(){
-    // Optimise uses of local variables of int, long,float, and double,
-    // whose value will be reassinged with a different constant number
-    // during the scope of the method. Value needs to propagate, but for
-    // specific intervals. (assignment <-> reassignment)
-    return false;
   }
 
 	public void optimize()
@@ -322,22 +328,6 @@ public class ConstantFolder
 
 
 		this.optimized = cgen.getJavaClass();
-	}
-
-	public void write(String optimisedFilePath)
-	{
-		this.optimize();
-
-		try {
-			FileOutputStream out = new FileOutputStream(new File(optimisedFilePath));
-      this.optimized.dump(out);
-		} catch (FileNotFoundException e) {
-			// Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// Auto-generated catch block
-			e.printStackTrace();
-		}
 	}
 
   private void print_matches(InstructionHandle[] matches){
