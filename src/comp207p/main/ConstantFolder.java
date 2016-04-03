@@ -124,6 +124,7 @@ public class ConstantFolder
     il.setPositions(true);
     mgen.setMaxStack();
     mgen.setMaxLocals();
+    cgen.setMajor(50);
     cgen.replaceMethod(method, mgen.getMethod());
   }
 
