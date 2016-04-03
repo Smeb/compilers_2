@@ -191,20 +191,20 @@ public class ConstantFolder
         break;
       }
 
-      // TODO: Catch / avoid runtime exceptions
       Number left_v, right_v;
       try {
         left_v = ValueResolver.get_value(cpgen, matches[0]);
         right_v = ValueResolver.get_value(cpgen, matches[1]);
-      } catch (RuntimeException e){
+      } catch (ValueLoadError e){
+        System.out.println("Value could not be resolved - no folding");
         continue;
       }
       ArithmeticInstruction op = (ArithmeticInstruction) matches[2].getInstruction();
-      String op_sig = op.getType(cpgen).getSignature();
-      Double result = evaluate_op(left_v, right_v, op);
 
-      // Change instruction handle to result type (in case there were
-      // conversions)
+      Double result = evaluate_op(left_v, right_v, op);
+      String op_sig = op.getType(cpgen).getSignature();
+
+      // Change instruction handle to result type
       if(op_sig.equals("D"))
         matches[0].setInstruction(new LDC2_W(cpgen.addDouble(result)));
       else if(op_sig.equals("F"))

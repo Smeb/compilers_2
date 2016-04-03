@@ -2,8 +2,10 @@ package comp207p.main;
 
 import comp207p.main.utils.ValueLoadError;
 import org.apache.bcel.generic.ASTORE;
+import org.apache.bcel.generic.BranchInstruction;
 import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.ConstantPushInstruction;
+import org.apache.bcel.generic.GotoInstruction;
 import org.apache.bcel.generic.Instruction;
 import org.apache.bcel.generic.InstructionHandle;
 import org.apache.bcel.generic.LDC;
@@ -67,4 +69,13 @@ public class ValueResolver {
     }
   }
 
+  private static boolean validate_load(InstructionHandle h){
+    InstructionHandle comp = h;
+    while(comp.getPrev() != null){
+      if(comp.getInstruction() instanceof GotoInstruction &&
+          ((BranchInstruction)comp.getInstruction()).getTarget().getInstruction().equals(h.getInstruction()))
+        return true;
+    }
+    return false;
+  }
 }
