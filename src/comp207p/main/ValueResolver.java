@@ -44,12 +44,11 @@ public class ValueResolver {
 
   private static InstructionHandle find_store_handle(InstructionHandle h, int index){
     while((h = h.getPrev()) != null){
-      if(h.getInstruction() instanceof StoreInstruction ){
-        if(((StoreInstruction)h.getInstruction()).getIndex() == index){
-          return h;
+      if(h.getInstruction() instanceof StoreInstruction &&
+          ((StoreInstruction)h.getInstruction()).getIndex() == index){
+        return h;
         }
       }
-    }
     throw new RuntimeException("Found dangling load instruction without store");
   }
 
