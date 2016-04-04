@@ -33,26 +33,27 @@ public class ValueResolver {
 
     // Identify target variable
     int index = ((LocalVariableInstruction) handle.getInstruction()).getIndex();
-    InstructionHandle store_handle = find_store_handle(handle, index);
-    Instruction store_instruction = store_handle.getInstruction();
-    if(store_instruction instanceof ASTORE){
+    int acc = 0;
+    InstructionHandle h = handle;
+
+    while((h = h.getPrev()) != null){
+      if(h.getPrev().getInstruction() instanceof IINC && ((IINC)h.getInstruction()).getIndex() == index){
+        acc += ((IINC)h.getInstruction()).getIncrement();
+      }
+      if(h.getInstruction() instanceof StoreInstruction &&
+          ((StoreInstruction)h.getInstruction()).getIndex() == index){
+        break;
+          }
+    }
+
+    if(h.getInstruction() instanceof ASTORE){
       throw new RuntimeException("Array storage and realisation not in the scope of these optimisations");
     }
     try {
-      return get_constant_value(cpgen, store_handle.getPrev().getInstruction());
+      return get_constant_value(cpgen, h.getPrev().getInstruction());
     } catch (RuntimeException e){
       throw new ValueLoadError("Value of variable could not be resolved");
     }
-  }
-
-  private static InstructionHandle find_store_handle(InstructionHandle h, int index){
-    while((h = h.getPrev()) != null){
-      if(h.getInstruction() instanceof StoreInstruction &&
-          ((StoreInstruction)h.getInstruction()).getIndex() == index){
-        return h;
-        }
-      }
-    throw new RuntimeException("Found dangling load instruction without store");
   }
 
   private static Number get_constant_value(ConstantPoolGen cpgen, Instruction instruction){
