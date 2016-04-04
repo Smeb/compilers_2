@@ -188,10 +188,9 @@ public class ConstantFolder
       }
 
       Number left_v, right_v;
+      InstructionHandle ih = matches[1];
       try {
         left_v = ValueResolver.get_value(cpgen, matches[0]);
-        int index = 1;
-        InstructionHandle ih = matches[1];
         while(ih.getInstruction() instanceof ConversionInstruction){
           ih = ih.getNext();
         }
@@ -201,16 +200,26 @@ public class ConstantFolder
         continue;
       }
 
-      if(matches.length > 3){
-        optimise_conversions(il, matches);
-        optimised = true;
-        break;
+      InstructionHandle ih2 = ih.getNext();
+      while(ih2.getInstruction() instanceof ConversionInstruction){
+        ih2 = ih2.getNext();
       }
 
-      ArithmeticInstruction op = (ArithmeticInstruction) matches[2].getInstruction();
+      // Once values are loaded we can then optimise conversions that
+      // appear in the load sequence. We do it after load since load can
+      // fail
+
+      if(matches.length > 3){
+        optimise_conversions(il, matches);
+      }
+
+      ArithmeticInstruction op = (ArithmeticInstruction) ih2.getInstruction();
 
       Double result = evaluate_op(left_v, right_v, op);
       String op_sig = op.getType(cpgen).getSignature();
+      System.out.println(left_v.doubleValue());
+      System.out.println(right_v.doubleValue());
+      System.out.println(result);
 
       // Change instruction handle to result type
       if(op_sig.equals("D"))
@@ -224,7 +233,7 @@ public class ConstantFolder
 
       // Delete unneeded instruction handles
       try {
-        il.delete(matches[1], matches[2]);
+        il.delete(ih, ih2);
       } catch (TargetLostException e) {
         e.printStackTrace();
       }

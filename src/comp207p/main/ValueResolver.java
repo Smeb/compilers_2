@@ -62,7 +62,7 @@ public class ValueResolver {
       throw new ValueLoadError("Array storage is not in the scope of coursework");
     }
     try {
-      return get_constant_value(cpgen, h.getInstruction()).intValue() + acc;
+      return get_constant_value(cpgen, h.getInstruction()).doubleValue() + acc;
     } catch (RuntimeException e){
       throw new ValueLoadError("Value of variable could not be resolved");
     }
