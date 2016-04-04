@@ -6,6 +6,7 @@ import org.apache.bcel.generic.BranchInstruction;
 import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.ConstantPushInstruction;
 import org.apache.bcel.generic.GotoInstruction;
+import org.apache.bcel.generic.IINC;
 import org.apache.bcel.generic.Instruction;
 import org.apache.bcel.generic.InstructionHandle;
 import org.apache.bcel.generic.LDC;
@@ -70,11 +71,17 @@ public class ValueResolver {
   }
 
   private static boolean validate_load(InstructionHandle h){
+    // Look forwards to check not in loop
     InstructionHandle comp = h;
-    while(comp.getPrev() != null){
-      if(comp.getInstruction() instanceof GotoInstruction &&
-          ((BranchInstruction)comp.getInstruction()).getTarget().getInstruction().equals(h.getInstruction()))
-        return true;
+    while(comp.getNext() != null){
+      if(comp.getInstruction() instanceof GotoInstruction){
+        Instruction prev = comp.getPrev().getInstruction();
+        if(prev instanceof IINC || prev instanceof StoreInstruction){
+          if(((BranchInstruction) comp.getInstruction()).getTarget().getInstruction().equals(h.getInstruction())){
+            return true;
+          }
+        }
+      }
     }
     return false;
   }
