@@ -186,19 +186,27 @@ public class ConstantFolder
       if(_DEBUG){
         print_matches(matches);
       }
-      if(matches.length > 3){
-        optimise_conversions(il, matches);
-        break;
-      }
 
       Number left_v, right_v;
       try {
         left_v = ValueResolver.get_value(cpgen, matches[0]);
-        right_v = ValueResolver.get_value(cpgen, matches[1]);
+        int index = 1;
+        InstructionHandle ih = matches[1];
+        while(ih.getInstruction() instanceof ConversionInstruction){
+          ih = ih.getNext();
+        }
+        right_v = ValueResolver.get_value(cpgen, ih);
       } catch (ValueLoadError e){
         System.out.println("Value could not be resolved - no folding");
         continue;
       }
+
+      if(matches.length > 3){
+        optimise_conversions(il, matches);
+        optimised = true;
+        break;
+      }
+
       ArithmeticInstruction op = (ArithmeticInstruction) matches[2].getInstruction();
 
       Double result = evaluate_op(left_v, right_v, op);
@@ -229,7 +237,8 @@ public class ConstantFolder
   }
 
   private Double evaluate_op(Number l, Number r, ArithmeticInstruction op) throws RuntimeException {
-    String op_s = op.getClass().getSimpleName().substring(1, 4);
+    int length = op.getClass().getSimpleName().length();
+    String op_s = op.getClass().getSimpleName().substring(1, length);
     if(op_s.equals("ADD")){
       return l.doubleValue() + r.doubleValue();
     }
@@ -241,6 +250,24 @@ public class ConstantFolder
     }
     else if(op_s.equals("DIV")){
       return l.doubleValue() / r.doubleValue();
+    }
+    else if(op_s.equals("REM")){
+      return l.doubleValue() % r.doubleValue();
+    }
+    else if(op_s.equals("OR")){
+      return new Double(l.longValue() | r.longValue());
+    }
+    else if(op_s.equals("XOR")){
+      return new Double(l.longValue() ^ r.longValue());
+    }
+    else if(op_s.equals("AND")){
+      return new Double(l.longValue() & r.longValue());
+    }
+    else if(op_s.equals("SHL")){
+      return new Double(l.longValue() << r.longValue());
+    }
+    else if(op_s.equals("SHR")){
+      return new Double(l.longValue() >> r.longValue());
     }
     else {
       throw new RuntimeException("Operation: " + op.getClass() + " not recognized");

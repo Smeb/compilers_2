@@ -1,13 +1,16 @@
 package comp207p.main;
 
 import comp207p.main.utils.ValueLoadError;
+
 import org.apache.bcel.generic.ASTORE;
 import org.apache.bcel.generic.BranchInstruction;
 import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.ConstantPushInstruction;
+import org.apache.bcel.generic.ConversionInstruction;
 import org.apache.bcel.generic.GotoInstruction;
 import org.apache.bcel.generic.IINC;
 import org.apache.bcel.generic.Instruction;
+import org.apache.bcel.generic.InstructionList;
 import org.apache.bcel.generic.InstructionHandle;
 import org.apache.bcel.generic.LDC;
 import org.apache.bcel.generic.LDC_W;
@@ -15,6 +18,7 @@ import org.apache.bcel.generic.LDC2_W;
 import org.apache.bcel.generic.LocalVariableInstruction;
 import org.apache.bcel.generic.LoadInstruction;
 import org.apache.bcel.generic.StoreInstruction;
+import org.apache.bcel.generic.TargetLostException;
 
 public class ValueResolver {
 
@@ -32,25 +36,33 @@ public class ValueResolver {
     // variable stores so this should always be fine
 
     // Identify target variable
+    //
+    // TODO: Loading from conversions - > possible optimisation of those
+    // conversions
     int index = ((LocalVariableInstruction) handle.getInstruction()).getIndex();
     int acc = 0;
     InstructionHandle h = handle;
 
     while((h = h.getPrev()) != null){
-      if(h.getPrev().getInstruction() instanceof IINC && ((IINC)h.getInstruction()).getIndex() == index){
+      if(h.getInstruction() instanceof IINC && ((IINC)h.getInstruction()).getIndex() == index){
         acc += ((IINC)h.getInstruction()).getIncrement();
       }
-      if(h.getInstruction() instanceof StoreInstruction &&
+      else if(h.getInstruction() instanceof StoreInstruction &&
           ((StoreInstruction)h.getInstruction()).getIndex() == index){
         break;
           }
     }
+    while((h = h.getPrev()) != null){
+      if(!(h.getInstruction() instanceof ConversionInstruction)){
+        break;
+      }
+    }
 
     if(h.getInstruction() instanceof ASTORE){
-      throw new RuntimeException("Array storage and realisation not in the scope of these optimisations");
+      throw new ValueLoadError("Array storage is not in the scope of coursework");
     }
     try {
-      return get_constant_value(cpgen, h.getPrev().getInstruction());
+      return get_constant_value(cpgen, h.getInstruction()).intValue() + acc;
     } catch (RuntimeException e){
       throw new ValueLoadError("Value of variable could not be resolved");
     }
