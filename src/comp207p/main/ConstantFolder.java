@@ -38,6 +38,7 @@ import org.apache.bcel.generic.LoadInstruction;
 import org.apache.bcel.generic.MethodGen;
 import org.apache.bcel.generic.StoreInstruction;
 import org.apache.bcel.generic.TargetLostException;
+import org.apache.bcel.generic.TypedInstruction;
 import org.apache.bcel.util.InstructionFinder;
 
 
@@ -118,10 +119,10 @@ public class ConstantFolder
       //optimised |= optimise_comparisons(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
       optimised |= optimise_negation(cpgen, il);
     } while(optimised);
-    optimised = false;
     do {
       // post optimisation pass to remove excess conversions where
       // possible.
+      optimised = false;
       optimised |= optimise_casts(cpgen, il);
     } while(optimised);
 
@@ -185,19 +186,42 @@ public class ConstantFolder
   }
 
   private boolean optimise_casts(ConstantPoolGen cpgen, InstructionList il){
-   // boolean optimised = false;
-   // InstructionFinder f = new InstructionFinder(il);
-   // String comparison_regex = push_value + "(ConversionInstruction)*";
-   // InstructionHandle[] matches = null;
-   // for(Iterator it = f.search(comparison_regex); it.hasNext();){
-   //   matches = (InstructionHandle[]) it.next();
-   //   if(_DEBUG){
-   //     print_matches(matches);
-   //   }
-   //   int end_index = matches.length();
-   //   InstructionHandle sig = matches[end_index].getNext();
-   // }
-   return false;
+    boolean optimised = false;
+    InstructionFinder f = new InstructionFinder(il);
+    String comparison_regex = push_value + "(ConversionInstruction)+";
+    InstructionHandle[] matches = null;
+    for(Iterator it = f.search(comparison_regex); it.hasNext();){
+      matches = (InstructionHandle[]) it.next();
+      if(_DEBUG){
+        print_matches(matches);
+      }
+      int end_index = matches.length;
+      System.out.println(end_index);
+      Number left_v;
+      try {
+        left_v = ValueResolver.get_value(cpgen, matches[0]);
+      } catch(ValueLoadError e){
+        System.out.println("Value could not be resolved - no folding");
+        continue;
+      }
+
+      // The last instruction past the load instruction should be the
+      // signature
+      InstructionHandle sig = matches[end_index - 1].getNext();
+      if(!(sig.getInstruction() instanceof TypedInstruction)){
+        System.out.println("Conversion type could not be resolved");
+        continue;
+      }
+      BCEL_API.fold_to_constant(cpgen, matches[0], sig, left_v);
+
+      try {
+        il.delete(matches[1], matches[end_index - 1]);
+      } catch(TargetLostException e){
+        e.printStackTrace();
+      }
+      optimised = true;
+    }
+    return optimised;
   }
 
   private boolean optimise_comparisons(ConstantPoolGen cpgen, InstructionList il){
