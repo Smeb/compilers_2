@@ -150,8 +150,8 @@ public class ConstantFolder
   private boolean optimise_comparisons(ConstantPoolGen cpgen, InstructionList il){
     boolean optimised = false;
     InstructionFinder f = new InstructionFinder(il);
-    String comparison_regex = push_value +
-                              push_value +
+    String comparison_regex = push_value + " " + "(ConversionInstruction)*" +
+                              push_value + " " + "(ConversionInstruction)*" +
                               comparison_instructions;
     InstructionHandle[] matches = null;
     for(Iterator it = f.search(comparison_regex); it.hasNext();){
@@ -159,19 +159,17 @@ public class ConstantFolder
       if(_DEBUG){
         print_matches(matches);
       }
-      if(matches.length > 3){
-        optimise_conversions(il, matches);
-        // break;
-      }
 
       Number left_v, right_v;
+      InstructionHandle ih = next_nonconversion(matches[0]);
       try {
         left_v = ValueResolver.get_value(cpgen, matches[0]);
-        right_v = ValueResolver.get_value(cpgen, matches[1]);
+        right_v = ValueResolver.get_value(cpgen, ih);
       } catch (ValueLoadError e){
         System.out.println("Value could not be resolved - no folding");
         continue;
       }
+      InstructionHandle ih2 = next_nonconversion(ih);
 
       if (!(matches[2].getInstruction() instanceof IfInstruction)){
         if (matches[3].getInstruction().getClass().getSimpleName().contains("a")) { continue; } //Can't optimise array structures so skip this match
@@ -192,12 +190,15 @@ public class ConstantFolder
 
         if (result = true) {
           try { //Wishful deadcode pruning
-            il.delete(matches[0], matches[2]); //delete the if statement and comparison
+            il.delete(matches[1], matches[2]); //delete the if statement and comparison
           } catch (TargetLostException e) {
             e.printStackTrace();
           }
         } else {
           // This doesn't work
+          if(matches.length > 3){
+            optimise_conversions(il, matches);
+      }
           // matches[0].setInstruction(il.findHandle(get_value(cpgen, matches[2]).getInstruction()));
         }
         
@@ -215,6 +216,7 @@ public class ConstantFolder
       //     e.printStackTrace();
       //   }
       // }
+      optimised = true;
     }
     return optimised;
   }
@@ -277,27 +279,20 @@ public class ConstantFolder
       }
 
       Number left_v, right_v;
-      InstructionHandle ih = matches[1];
+      InstructionHandle ih = next_nonconversion(matches[0]);
       try {
         left_v = ValueResolver.get_value(cpgen, matches[0]);
-        while(ih.getInstruction() instanceof ConversionInstruction){
-          ih = ih.getNext();
-        }
         right_v = ValueResolver.get_value(cpgen, ih);
       } catch (ValueLoadError e){
         System.out.println("Value could not be resolved - no folding");
         continue;
       }
 
-      InstructionHandle ih2 = ih.getNext();
-      while(ih2.getInstruction() instanceof ConversionInstruction){
-        ih2 = ih2.getNext();
-      }
+      InstructionHandle ih2 = next_nonconversion(ih);
 
       // Once values are loaded we can then optimise conversions that
       // appear in the load sequence. We do it after load since load can
       // fail
-
 
       ArithmeticInstruction op = (ArithmeticInstruction) ih2.getInstruction();
 
@@ -382,6 +377,15 @@ public class ConstantFolder
 
 		this.optimized = cgen.getJavaClass();
 	}
+
+  private InstructionHandle next_nonconversion(InstructionHandle ih){
+    while((ih = ih.getNext()) != null){
+      if(!(ih.getInstruction() instanceof ConversionInstruction)){
+        return ih;
+      }
+    }
+    throw new RuntimeException("Incorrectly handled conversion slide");
+  }
 
   private void print_matches(InstructionHandle[] matches){
     System.out.println("Optimisable instructions found:");
