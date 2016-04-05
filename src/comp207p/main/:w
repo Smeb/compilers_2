@@ -116,7 +116,6 @@ public class ConstantFolder
       optimised = false;
       optimised |= optimise_arithmetic(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
       //optimised |= optimise_comparisons(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
-      optimised |= optimise_negation(cpgen, il);
     } while(optimised);
 
     if(_DEBUG){
@@ -158,23 +157,15 @@ public class ConstantFolder
       if(_DEBUG){
         print_matches(matches);
       }
-      Number left_v;
-      try{
-        left_v = ValueResolver.get_value(cpgen, matches[0]);
-      } catch(ValueLoadError e){
-        System.out.println("Value could not be resolved - no folding");
-        continue;
-      }
+      Number left_v = ValueResolver.get_value(cpgen, matches[0]);
       Number result = ValueResolver.resolve_negation(cpgen, left_v, matches[1]);
-      BCEL_API.fold_to_constant(cpgen, matches[0], matches[1], result);
+      BCEP_API.fold_to_constant(cpgen, matches[0], matches[1], result);
       try {
-        il.delete(matches[1]);
+        il.delete(match[1]);
       } catch (TargetLostException e){
         e.printStackTrace();
       }
-      optimised = true;
     }
-    return optimised;
 
   }
 

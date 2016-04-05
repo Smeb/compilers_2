@@ -87,7 +87,6 @@ public class ValueResolver {
     InstructionHandle h = handle;
     InstructionHandle sub_h;
     while((h = h.getNext()) != null){
-      System.out.println(h);
       if(h.getInstruction() instanceof BranchInstruction){
         sub_h = ((BranchInstruction)h.getInstruction()).getTarget();
         while(sub_h != null && sub_h!= h){
@@ -101,11 +100,20 @@ public class ValueResolver {
     return false;
   }
 
+  protected static Number resolve_negation(ConstantPoolGen cpgen, Number l, InstructionHandle signature){
+    int sig = BCEL_API.resolve_sig(cpgen, signature);
+    switch(sig){
+      case BCEL_API.SIG_D: return new Double(-1 * l.doubleValue());
+      case BCEL_API.SIG_F: return new Double(-1 * l.doubleValue());
+      default: return new Long(-1 * l.longValue());
+    }
+  }
+
+
   protected static Number resolve_arithmetic_op(ConstantPoolGen cpgen, Number l, Number r, ArithmeticInstruction op) throws RuntimeException {
     int length = op.getClass().getSimpleName().length();
     String op_s = op.getClass().getSimpleName().substring(1, length);
     String sig = op.getType(cpgen).getSignature();
-    System.out.println(sig);
     if(sig.equals("F") || sig.equals("D")){
       if(op_s.equals("ADD")){
         return l.doubleValue() + r.doubleValue();
