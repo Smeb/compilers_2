@@ -49,6 +49,7 @@ public class ConstantFolder
   final String comparison_instructions = "(LCMP|DCMPL|DCMPG|FCMPL|FCMPG) (IfInstruction ICONST GOTO ICONST)";
 
   boolean _DEBUG = true;
+  static boolean END_OPT = false;
 
 	JavaClass original = null;
 	JavaClass optimized = null;
@@ -247,14 +248,21 @@ public class ConstantFolder
 
 	public void optimize()
 	{
+		ClassGen cgen = new ClassGen(original);
+    if(END_OPT){
+      this.optimized = cgen.getJavaClass();
+      return;
+    }
     Scanner reader = new Scanner(System.in);
     System.out.println("================================================");
     System.out.println("Optimise class: '" + original.getClassName() + "' ?");
-    System.out.println("1 --> yes; 0 --> no");
+    System.out.println("1 --> yes; 0 --> no; -1 --> no further optimisations");
     System.out.println("================================================");
     int n = reader.nextInt();
-		ClassGen cgen = new ClassGen(original);
-    if(n == 0){
+    if(n == 0 || n == -1){
+      if(n == -1){
+        END_OPT = true;
+      }
       this.optimized = cgen.getJavaClass();
       return;
     }
