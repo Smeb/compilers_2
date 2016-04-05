@@ -215,7 +215,7 @@ public class ConstantFolder
 
       ArithmeticInstruction op = (ArithmeticInstruction) ih2.getInstruction();
 
-      Double result = evaluate_op(left_v, right_v, op);
+      Double result = ValueResolver.resolve_arithmetic_op(left_v, right_v, op);
       String op_sig = op.getType(cpgen).getSignature();
       System.out.println(left_v.doubleValue());
       System.out.println(right_v.doubleValue());
@@ -244,45 +244,6 @@ public class ConstantFolder
     }
     return optimised;
   }
-
-  private Double evaluate_op(Number l, Number r, ArithmeticInstruction op) throws RuntimeException {
-    int length = op.getClass().getSimpleName().length();
-    String op_s = op.getClass().getSimpleName().substring(1, length);
-    if(op_s.equals("ADD")){
-      return l.doubleValue() + r.doubleValue();
-    }
-    else if(op_s.equals("SUB")){
-      return l.doubleValue() - r.doubleValue();
-    }
-    else if(op_s.equals("MUL")){
-      return l.doubleValue() * r.doubleValue();
-    }
-    else if(op_s.equals("DIV")){
-      return l.doubleValue() / r.doubleValue();
-    }
-    else if(op_s.equals("REM")){
-      return l.doubleValue() % r.doubleValue();
-    }
-    else if(op_s.equals("OR")){
-      return new Double(l.longValue() | r.longValue());
-    }
-    else if(op_s.equals("XOR")){
-      return new Double(l.longValue() ^ r.longValue());
-    }
-    else if(op_s.equals("AND")){
-      return new Double(l.longValue() & r.longValue());
-    }
-    else if(op_s.equals("SHL")){
-      return new Double(l.longValue() << r.longValue());
-    }
-    else if(op_s.equals("SHR")){
-      return new Double(l.longValue() >> r.longValue());
-    }
-    else {
-      throw new RuntimeException("Operation: " + op.getClass() + " not recognized");
-    }
-  }
-
 
 	public void optimize()
 	{

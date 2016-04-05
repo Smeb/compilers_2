@@ -3,6 +3,7 @@ package comp207p.main;
 import comp207p.main.utils.ValueLoadError;
 
 import org.apache.bcel.generic.ASTORE;
+import org.apache.bcel.generic.ArithmeticInstruction;
 import org.apache.bcel.generic.BranchInstruction;
 import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.ConstantPushInstruction;
@@ -82,22 +83,6 @@ public class ValueResolver {
     }
   }
 
-  private static boolean validate_load(InstructionHandle h){
-    // Look forwards to check not in loop
-    InstructionHandle comp = h;
-    while(comp.getNext() != null){
-      if(comp.getInstruction() instanceof GotoInstruction){
-        Instruction prev = comp.getPrev().getInstruction();
-        if(prev instanceof IINC || prev instanceof StoreInstruction){
-          if(((BranchInstruction) comp.getInstruction()).getTarget().getInstruction().equals(h.getInstruction())){
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }
-
   private static boolean looped_assignment(InstructionHandle handle){
     InstructionHandle h = handle;
     InstructionHandle sub_h;
@@ -115,4 +100,44 @@ public class ValueResolver {
     }
     return false;
   }
+
+  protected static Double resolve_arithmetic_op(Number l, Number r, ArithmeticInstruction op) throws RuntimeException {
+    int length = op.getClass().getSimpleName().length();
+    String op_s = op.getClass().getSimpleName().substring(1, length);
+    if(op_s.equals("ADD")){
+      return l.doubleValue() + r.doubleValue();
+    }
+    else if(op_s.equals("SUB")){
+      return l.doubleValue() - r.doubleValue();
+    }
+    else if(op_s.equals("MUL")){
+      return l.doubleValue() * r.doubleValue();
+    }
+    else if(op_s.equals("DIV")){
+      return l.doubleValue() / r.doubleValue();
+    }
+    else if(op_s.equals("REM")){
+      return l.doubleValue() % r.doubleValue();
+    }
+    else if(op_s.equals("OR")){
+      return new Double(l.longValue() | r.longValue());
+    }
+    else if(op_s.equals("XOR")){
+      return new Double(l.longValue() ^ r.longValue());
+    }
+    else if(op_s.equals("AND")){
+      return new Double(l.longValue() & r.longValue());
+    }
+    else if(op_s.equals("SHL")){
+      return new Double(l.longValue() << r.longValue());
+    }
+    else if(op_s.equals("SHR")){
+      return new Double(l.longValue() >> r.longValue());
+    }
+    else {
+      throw new RuntimeException("Operation: " + op.getClass() + " not recognized");
+    }
+  }
+
+
 }
