@@ -101,41 +101,65 @@ public class ValueResolver {
     return false;
   }
 
-  protected static Double resolve_arithmetic_op(Number l, Number r, ArithmeticInstruction op) throws RuntimeException {
+  protected static Number resolve_arithmetic_op(ConstantPoolGen cpgen, Number l, Number r, ArithmeticInstruction op) throws RuntimeException {
     int length = op.getClass().getSimpleName().length();
     String op_s = op.getClass().getSimpleName().substring(1, length);
-    if(op_s.equals("ADD")){
-      return l.doubleValue() + r.doubleValue();
-    }
-    else if(op_s.equals("SUB")){
-      return l.doubleValue() - r.doubleValue();
-    }
-    else if(op_s.equals("MUL")){
-      return l.doubleValue() * r.doubleValue();
-    }
-    else if(op_s.equals("DIV")){
-      return l.doubleValue() / r.doubleValue();
-    }
-    else if(op_s.equals("REM")){
-      return l.doubleValue() % r.doubleValue();
-    }
-    else if(op_s.equals("OR")){
-      return new Double(l.longValue() | r.longValue());
-    }
-    else if(op_s.equals("XOR")){
-      return new Double(l.longValue() ^ r.longValue());
-    }
-    else if(op_s.equals("AND")){
-      return new Double(l.longValue() & r.longValue());
-    }
-    else if(op_s.equals("SHL")){
-      return new Double(l.longValue() << r.longValue());
-    }
-    else if(op_s.equals("SHR")){
-      return new Double(l.longValue() >> r.longValue());
+    String sig = op.getType(cpgen).getSignature();
+    System.out.println(sig);
+    if(sig.equals("F") || sig.equals("D")){
+      if(op_s.equals("ADD")){
+        return l.doubleValue() + r.doubleValue();
+      }
+      else if(op_s.equals("SUB")){
+        return l.doubleValue() - r.doubleValue();
+      }
+      else if(op_s.equals("MUL")){
+        return l.doubleValue() * r.doubleValue();
+      }
+      else if(op_s.equals("DIV")){
+        return l.doubleValue() / r.doubleValue();
+      }
+      else if(op_s.equals("REM")){
+        return l.doubleValue() % r.doubleValue();
+      }
+      else {
+        throw new RuntimeException("Operation: " + op.getClass() + " not recognized");
+      }
     }
     else {
-      throw new RuntimeException("Operation: " + op.getClass() + " not recognized");
+      if(op_s.equals("ADD")){
+        return l.longValue() + r.longValue();
+      }
+      else if(op_s.equals("SUB")){
+        return l.longValue() - r.longValue();
+      }
+      else if(op_s.equals("MUL")){
+        return l.longValue() * r.longValue();
+      }
+      else if(op_s.equals("DIV")){
+        return l.longValue() / r.longValue();
+      }
+      else if(op_s.equals("REM")){
+        return l.longValue() % r.longValue();
+      }
+      else if(op_s.equals("OR")){
+        return new Long(l.longValue() | r.longValue());
+      }
+      else if(op_s.equals("XOR")){
+        return new Long(l.longValue() ^ r.longValue());
+      }
+      else if(op_s.equals("AND")){
+        return new Long(l.longValue() & r.longValue());
+      }
+      else if(op_s.equals("SHL")){
+        return new Long(l.longValue() << r.longValue());
+      }
+      else if(op_s.equals("SHR")){
+        return new Long(l.longValue() >> r.longValue());
+      }
+      else {
+        throw new RuntimeException("Operation: " + op.getClass() + " not recognized");
+      }
     }
   }
 

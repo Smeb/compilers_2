@@ -50,6 +50,7 @@ public class ConstantFolder
 
   boolean _DEBUG = true;
   static boolean END_OPT = false;
+  static boolean OPT_ALL = false;
 
 	JavaClass original = null;
 	JavaClass optimized = null;
@@ -213,15 +214,12 @@ public class ConstantFolder
 
       ArithmeticInstruction op = (ArithmeticInstruction) ih2.getInstruction();
 
-      Double result = ValueResolver.resolve_arithmetic_op(left_v, right_v, op);
+      Number result = ValueResolver.resolve_arithmetic_op(cpgen, left_v, right_v, op);
       String op_sig = op.getType(cpgen).getSignature();
-      System.out.println(left_v.doubleValue());
-      System.out.println(right_v.doubleValue());
-      System.out.println(result);
 
       // Change instruction handle to result type
       if(op_sig.equals("D"))
-        matches[0].setInstruction(new LDC2_W(cpgen.addDouble(result)));
+        matches[0].setInstruction(new LDC2_W(cpgen.addDouble(result.doubleValue())));
       else if(op_sig.equals("F"))
         matches[0].setInstruction(new LDC(cpgen.addFloat(result.floatValue())));
       else if(op_sig.equals("J"))
@@ -247,24 +245,29 @@ public class ConstantFolder
   }
 
 	public void optimize()
-	{
-		ClassGen cgen = new ClassGen(original);
-    if(END_OPT){
-      this.optimized = cgen.getJavaClass();
-      return;
-    }
-    Scanner reader = new Scanner(System.in);
-    System.out.println("================================================");
-    System.out.println("Optimise class: '" + original.getClassName() + "' ?");
-    System.out.println("1 --> yes; 0 --> no; -1 --> no further optimisations");
-    System.out.println("================================================");
-    int n = reader.nextInt();
-    if(n == 0 || n == -1){
-      if(n == -1){
-        END_OPT = true;
+  {
+    ClassGen cgen = new ClassGen(original);
+    if(!OPT_ALL){
+      if(END_OPT){
+        this.optimized = cgen.getJavaClass();
+        return;
       }
-      this.optimized = cgen.getJavaClass();
-      return;
+      Scanner reader = new Scanner(System.in);
+      System.out.println("================================================");
+      System.out.println("Optimise class: '" + original.getClassName() + "' ?");
+      System.out.println("2 --> optimise all; 1 --> yes; 0 --> no; -1 --> no further optimisations");
+      System.out.println("================================================");
+      int n = reader.nextInt();
+      if(n == 0 || n == -1){
+        if(n == -1){
+          END_OPT = true;
+        }
+        this.optimized = cgen.getJavaClass();
+        return;
+      }
+      if(n == 2){
+        OPT_ALL = true;
+      }
     }
 
 
