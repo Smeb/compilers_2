@@ -1,3 +1,5 @@
+package comp207p.target;
+
 public class LoopChecking {
   public void foldable_loop(){
     int a = 3;

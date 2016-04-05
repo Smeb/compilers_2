@@ -14,15 +14,15 @@ import java.io.PrintStream;
 public class SimpleFoldingTest {
 
     SimpleFolding sf = new SimpleFolding();
-    
+
     private final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
-    
+
     @Before
     public void setUpStreams()
     {
         System.setOut(new PrintStream(outContent));
     }
-    
+
     @After
     public void cleanUpStreams()
     {
