@@ -35,10 +35,6 @@ public class ValueResolver {
     // recent store instruction to the variable - we are not folding
     // variable stores so this should always be fine
 
-    // Identify target variable
-    //
-    // TODO: Loading from conversions - > possible optimisation of those
-    // conversions
     int index = ((LocalVariableInstruction) handle.getInstruction()).getIndex();
     int acc = 0;
     InstructionHandle h = handle;
@@ -57,10 +53,13 @@ public class ValueResolver {
         break;
       }
     }
-
     if(h.getInstruction() instanceof ASTORE){
       throw new ValueLoadError("Array storage is not in the scope of coursework");
     }
+    if(looped_assignment(h)){
+      throw new ValueLoadError("Assignment happens in loop - variable will not be loaded");
+    }
+
     try {
       return get_constant_value(cpgen, h.getInstruction()).doubleValue() + acc;
     } catch (RuntimeException e){
@@ -93,6 +92,24 @@ public class ValueResolver {
           if(((BranchInstruction) comp.getInstruction()).getTarget().getInstruction().equals(h.getInstruction())){
             return true;
           }
+        }
+      }
+    }
+    return false;
+  }
+
+  private static boolean looped_assignment(InstructionHandle handle){
+    InstructionHandle h = handle;
+    InstructionHandle sub_h;
+    while((h = h.getNext()) != null){
+      System.out.println(h);
+      if(h.getInstruction() instanceof BranchInstruction){
+        sub_h = ((BranchInstruction)h.getInstruction()).getTarget();
+        while(sub_h != null && sub_h!= h){
+          if(sub_h == handle){
+            return true;
+          }
+          sub_h = sub_h.getNext();
         }
       }
     }
