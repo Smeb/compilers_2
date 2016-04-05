@@ -32,39 +32,39 @@ public class Comparisons {
   }
 
   public boolean L_GT(){
-    long a = 0;
-    long b = 1;
+    long a = 100000000001L;
+    long b = 200000000001L;
     return a > b;
   }
   public boolean L_GTE(){
-    long a = 0;
-    long b = 1;
+    long a = 100000000001L;
+    long b = 200000000001L;
     return a >= b;
   }
   public boolean L_LT(){
-    long a = 0;
-    long b = 1;
+    long a = 100000000001L;
+    long b = 200000000001L;
     return a < b;
   }
   public boolean L_LTE(){
-    long a = 0;
-    long b = 1;
+    long a = 100000000001L;
+    long b = 200000000001L;
     return a <= b;
   }
   public boolean L_EQ(){
-    long a = 0;
-    long b = 1;
+    long a = 100000000001L;
+    long b = 200000000001L;
     return a == b;
   }
   public boolean L_NEQ(){
-    long a = 0;
-    long b = 1;
+    long a = 100000000001L;
+    long b = 200000000001L;
     return a != b;
   }
 
   public boolean F_GT(){
-    float a = 0;
-    float b = 1;
+    float a = 0.0101f;
+    float b = 12.123f;
     return a > b;
   }
   public boolean F_GTE(){

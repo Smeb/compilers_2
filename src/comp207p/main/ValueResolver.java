@@ -8,7 +8,6 @@ import org.apache.bcel.generic.BranchInstruction;
 import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.ConstantPushInstruction;
 import org.apache.bcel.generic.ConversionInstruction;
-import org.apache.bcel.generic.GotoInstruction;
 import org.apache.bcel.generic.IINC;
 import org.apache.bcel.generic.Instruction;
 import org.apache.bcel.generic.InstructionList;
@@ -57,7 +56,10 @@ public class ValueResolver {
     if(h.getInstruction() instanceof ASTORE){
       throw new ValueLoadError("Array storage is not in the scope of coursework");
     }
-    if(looped_assignment(h)){
+    if(in_loop(h)){
+      throw new ValueLoadError("Assignment happens in loop - variable will not be loaded");
+    }
+    if(in_conditional_branch(h)){
       throw new ValueLoadError("Assignment happens in loop - variable will not be loaded");
     }
 
@@ -83,7 +85,9 @@ public class ValueResolver {
     }
   }
 
-  private static boolean looped_assignment(InstructionHandle handle){
+  //TODO: Need to ensure to check that skippable instructions are not
+  //evaluated
+  private static boolean in_loop(InstructionHandle handle){
     InstructionHandle h = handle;
     InstructionHandle sub_h;
     while((h = h.getNext()) != null){
@@ -100,6 +104,33 @@ public class ValueResolver {
     return false;
   }
 
+  private static boolean in_conditional_branch(InstructionHandle handle){
+    // Should take as input the store_instruction -> there should be
+    // instructions beforehand
+
+    InstructionHandle h = handle;
+    InstructionHandle sub_h = h;
+    while(h.getPrev() != null){
+      // go to head of code
+      h = h.getPrev();
+    }
+
+    do {
+      if(h.getInstruction() instanceof BranchInstruction){
+        sub_h = ((BranchInstruction)h.getInstruction()).getTarget();
+        while(sub_h != null && sub_h != handle){
+          sub_h = sub_h.getNext();
+          System.out.println(sub_h);
+        }
+        if(sub_h == null){
+          return true;
+        }
+      }
+      h = h.getNext();
+    } while(h != null && h!= handle);
+    return false;
+  }
+
   protected static Number resolve_negation(ConstantPoolGen cpgen, Number l, InstructionHandle signature){
     int sig = BCEL_API.resolve_sig(cpgen, signature);
     switch(sig){
@@ -110,7 +141,8 @@ public class ValueResolver {
   }
 
 
-  protected static Number resolve_arithmetic_op(ConstantPoolGen cpgen, Number l, Number r, ArithmeticInstruction op) throws RuntimeException {
+  protected static Number resolve_arithmetic_op(ConstantPoolGen cpgen, Number l, Number r, InstructionHandle oph) throws RuntimeException {
+    ArithmeticInstruction op = (ArithmeticInstruction)oph.getInstruction();
     int length = op.getClass().getSimpleName().length();
     String op_s = op.getClass().getSimpleName().substring(1, length);
     String sig = op.getType(cpgen).getSignature();

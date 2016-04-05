@@ -118,6 +118,12 @@ public class ConstantFolder
       //optimised |= optimise_comparisons(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
       optimised |= optimise_negation(cpgen, il);
     } while(optimised);
+    optimised = false;
+    do {
+      // post optimisation pass to remove excess conversions where
+      // possible.
+      optimised |= optimise_casts(cpgen, il);
+    } while(optimised);
 
     if(_DEBUG){
       System.out.println("Optimised instructions:");
@@ -135,7 +141,7 @@ public class ConstantFolder
     cgen.replaceMethod(method, mgen.getMethod());
   }
 
-  private void optimise_conversions(InstructionList il, InstructionHandle[] matches){
+  private void purge_conversions(InstructionList il, InstructionHandle[] matches){
     // Delete conversions only for constants from the pool when the
     // conversion precedes an operation taking two stack inputs
     for(InstructionHandle h : matches){
@@ -176,6 +182,22 @@ public class ConstantFolder
     }
     return optimised;
 
+  }
+
+  private boolean optimise_casts(ConstantPoolGen cpgen, InstructionList il){
+   // boolean optimised = false;
+   // InstructionFinder f = new InstructionFinder(il);
+   // String comparison_regex = push_value + "(ConversionInstruction)*";
+   // InstructionHandle[] matches = null;
+   // for(Iterator it = f.search(comparison_regex); it.hasNext();){
+   //   matches = (InstructionHandle[]) it.next();
+   //   if(_DEBUG){
+   //     print_matches(matches);
+   //   }
+   //   int end_index = matches.length();
+   //   InstructionHandle sig = matches[end_index].getNext();
+   // }
+   return false;
   }
 
   private boolean optimise_comparisons(ConstantPoolGen cpgen, InstructionList il){
@@ -228,11 +250,10 @@ public class ConstantFolder
         } else {
           // This doesn't work
           if(matches.length > 3){
-            optimise_conversions(il, matches);
+            purge_conversions(il, matches);
       }
           // matches[0].setInstruction(il.findHandle(get_value(cpgen, matches[2]).getInstruction()));
         }
-        
       // } else {
 
       //   if (result = true) {
@@ -311,6 +332,7 @@ public class ConstantFolder
 
       Number left_v, right_v;
       InstructionHandle ih = next_nonconversion(matches[0]);
+
       try {
         left_v = ValueResolver.get_value(cpgen, matches[0]);
         right_v = ValueResolver.get_value(cpgen, ih);
@@ -321,29 +343,13 @@ public class ConstantFolder
 
       InstructionHandle ih2 = next_nonconversion(ih);
 
-      // Once values are loaded we can then optimise conversions that
-      // appear in the load sequence. We do it after load since load can
-      // fail
-
-      ArithmeticInstruction op = (ArithmeticInstruction) ih2.getInstruction();
-
-      Number result = ValueResolver.resolve_arithmetic_op(cpgen, left_v, right_v, op);
-      String op_sig = op.getType(cpgen).getSignature();
-
-      // Change instruction handle to result type
-      if(op_sig.equals("D"))
-        matches[0].setInstruction(new LDC2_W(cpgen.addDouble(result.doubleValue())));
-      else if(op_sig.equals("F"))
-        matches[0].setInstruction(new LDC(cpgen.addFloat(result.floatValue())));
-      else if(op_sig.equals("J"))
-        matches[0].setInstruction(new LDC2_W(cpgen.addLong(result.longValue())));
-      else if(op_sig.equals("I"))
-        matches[0].setInstruction(new LDC(cpgen.addInteger(result.intValue())));
+      Number result = ValueResolver.resolve_arithmetic_op(cpgen, left_v, right_v, ih2);
+      BCEL_API.fold_to_constant(cpgen, matches[0], ih2, result);
 
       // Delete unneeded instruction handles
       try {
         if(matches.length > 3){
-          optimise_conversions(il, matches);
+          purge_conversions(il, matches);
         }
         il.delete(ih, ih2);
       } catch (TargetLostException e) {
@@ -383,7 +389,6 @@ public class ConstantFolder
       }
     }
 
-
 		ConstantPoolGen cpgen = cgen.getConstantPool();
     ConstantPool cp = cpgen.getConstantPool();
     Constant[] constants = cp.getConstantPool();
@@ -404,7 +409,6 @@ public class ConstantFolder
       // Optimisation body should be in this submethod
       optimise_method(cgen, cpgen, m);
     }
-
 
 		this.optimized = cgen.getJavaClass();
 	}
