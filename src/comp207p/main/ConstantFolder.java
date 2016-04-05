@@ -26,6 +26,7 @@ import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.ConstantPushInstruction;
 import org.apache.bcel.generic.ConversionInstruction;
 import org.apache.bcel.generic.LocalVariableInstruction;
+import org.apache.bcel.generic.IfInstruction;
 import org.apache.bcel.generic.Instruction;
 import org.apache.bcel.generic.InstructionHandle;
 import org.apache.bcel.generic.InstructionList;
@@ -158,8 +159,94 @@ public class ConstantFolder
       if(_DEBUG){
         print_matches(matches);
       }
+      if(matches.length > 3){
+        optimise_conversions(il, matches);
+        // break;
+      }
+
+      Number left_v, right_v;
+      try {
+        left_v = ValueResolver.get_value(cpgen, matches[0]);
+        right_v = ValueResolver.get_value(cpgen, matches[1]);
+      } catch (ValueLoadError e){
+        System.out.println("Value could not be resolved - no folding");
+        continue;
+      }
+
+      if (!(matches[2].getInstruction() instanceof IfInstruction)){
+        if (matches[3].getInstruction().getClass().getSimpleName().contains("a")) { continue; } //Can't optimise array structures so skip this match
+        try{
+          il.delete(matches[2]); // delete the cast such as dcmpl
+        } catch (TargetLostException e){
+          e.printStackTrace();
+        }
+      }
+
+      IfInstruction comparison = (IfInstruction) matches[2].getInstruction(); // Set the comparison instruction
+
+      if (comparison.getClass().getSimpleName().contains("a")) { continue; } //Can't optimise array structures
+
+      boolean result = compare_op(left_v, right_v, comparison);
+
+      // if (is_int_comp(comparison)){ // If the comparison is part of an if statement; I don't believe that this is needed, tho I already wrote it so...
+
+        if (result = true) {
+          try { //Wishful deadcode pruning
+            il.delete(matches[0], matches[2]); //delete the if statement and comparison
+          } catch (TargetLostException e) {
+            e.printStackTrace();
+          }
+        } else {
+          // This doesn't work
+          // matches[0].setInstruction(il.findHandle(get_value(cpgen, matches[2]).getInstruction()));
+        }
+        
+      // } else {
+
+      //   if (result = true) {
+      //     matches[0].setInstruction(new ICONST(1)); // set the result as true
+      //   } else {
+      //     matches[0].setInstruction(new ICONST(0));
+      //   }
+
+      //   try {
+      //     il.delete(matches[1], matches[2]); //Delete the comparison, the store operation after (if appropriate) will still save the result
+      //   } catch (TargetLostException e) {
+      //     e.printStackTrace();
+      //   }
+      // }
     }
     return optimised;
+  }
+
+  private boolean is_int_comp(IfInstruction op) { // I believe this is superfluous now
+    String op_s = op.getClass().getSimpleName();
+    return op_s.contains("if_");
+  }
+
+  private boolean compare_op(Number l, Number r, IfInstruction op) throws RuntimeException {
+    String op_s = op.getClass().getSimpleName();
+    if(op_s.contains("EQ")){
+      return l.doubleValue() == r.doubleValue();
+    }
+    else if(op_s.contains("GE")){
+      return l.doubleValue() >= r.doubleValue();
+    }
+    else if(op_s.contains("GT")){
+      return l.doubleValue() > r.doubleValue();
+    }
+    else if(op_s.contains("LE")){
+      return l.doubleValue() <= r.doubleValue();
+    }
+    else if(op_s.contains("LT")){
+      return l.doubleValue() < r.doubleValue();
+    }
+    else if(op_s.contains("NE")){
+      return l.doubleValue() != r.doubleValue();
+    }
+    else {
+      throw new RuntimeException("Operation: " + op.getClass() + " not recognized");
+    }
   }
 
   private boolean optimise_arithmetic(ConstantPoolGen cpgen, InstructionList il){
