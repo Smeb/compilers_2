@@ -209,9 +209,6 @@ public class ConstantFolder
       // appear in the load sequence. We do it after load since load can
       // fail
 
-      if(matches.length > 3){
-        optimise_conversions(il, matches);
-      }
 
       ArithmeticInstruction op = (ArithmeticInstruction) ih2.getInstruction();
 
@@ -233,6 +230,9 @@ public class ConstantFolder
 
       // Delete unneeded instruction handles
       try {
+        if(matches.length > 3){
+          optimise_conversions(il, matches);
+        }
         il.delete(ih, ih2);
       } catch (TargetLostException e) {
         e.printStackTrace();
