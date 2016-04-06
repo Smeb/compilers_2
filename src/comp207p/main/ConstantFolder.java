@@ -273,11 +273,13 @@ public class ConstantFolder
           optimise_comparison(cpgen, il, ih1, ih2, ih3, ih4);
         }
       } catch(ValueLoadError e){
+        System.out.println("Serious error thrown");
         System.out.println(e.getMessage());
         continue;
       }
-
       optimised = false;
+      f.reread();
+      it = f.search(comparison_regex);
     }
     return optimised;
   }
@@ -288,17 +290,30 @@ public class ConstantFolder
     Number left_v, right_v;
     left_v = ValueResolver.get_value(cpgen, load_h1, if_h);
     right_v = ValueResolver.get_value(cpgen, load_h2, if_h);
-    boolean result = ValueResolver.eval_comparison(left_v, right_v, if_h);
-    System.out.println("Compared: " + left_v.intValue() + " " + right_v.intValue() + " result: " + result);
+    // result indicates whether we follow the branch or not
+    int result = ValueResolver.eval_comparison(left_v, right_v, if_h);
+    try{
+      BCEL_API.remove_branch(cpgen, il, load_h1, if_h, result);
+    } catch(TargetLostException e){
+      e.printStackTrace();
+      return;
+    }
   }
+
   public void optimise_comparison(ConstantPoolGen cpgen, InstructionList il, InstructionHandle load_h1, InstructionHandle load_h2, InstructionHandle comp_h, InstructionHandle if_h) throws ValueLoadError{
     // Instructions in the sequence PUSH PUSH (NON INT CMP) IF - non
     // integer comparisons
     Number left_v, right_v;
     left_v = ValueResolver.get_value(cpgen, load_h1, comp_h);
     right_v = ValueResolver.get_value(cpgen, load_h2, comp_h);
-    boolean result = ValueResolver.eval_comparison(left_v, right_v, comp_h);
-    System.out.println("Compared: " + left_v.intValue() + " " + right_v.intValue() + " result: " + result);
+    // result indicates whether we follow the branch or not
+    int result = ValueResolver.eval_comparison(left_v, right_v, comp_h, if_h);
+    try{
+      BCEL_API.remove_branch(cpgen, il, load_h1, if_h, result);
+    } catch(TargetLostException e){
+      e.printStackTrace();
+      return;
+    }
   }
 
   private boolean is_int_comp(IfInstruction op) { // I believe this is superfluous now

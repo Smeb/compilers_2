@@ -21,6 +21,12 @@ import org.apache.bcel.generic.LocalVariableInstruction;
 import org.apache.bcel.generic.LoadInstruction;
 import org.apache.bcel.generic.StoreInstruction;
 import org.apache.bcel.generic.TargetLostException;
+import org.apache.bcel.generic.DCMPG;
+import org.apache.bcel.generic.FCMPG;
+import org.apache.bcel.generic.DCMPL;
+import org.apache.bcel.generic.FCMPL;
+import org.apache.bcel.generic.LCMP;
+
 import org.apache.bcel.generic.IFLE;
 import org.apache.bcel.generic.IFLT;
 import org.apache.bcel.generic.IFGE;
@@ -130,7 +136,6 @@ public class ValueResolver {
     // Should take as input the store_instruction -> there should be
     // instructions beforehand
 
-    System.out.println(handle);
     InstructionHandle h = handle;
     InstructionHandle sub_h;
     while(h.getPrev() != null){
@@ -225,37 +230,60 @@ public class ValueResolver {
     }
   }
 
-  protected static boolean eval_comparison(Number l, Number r, InstructionHandle sig) throws ValueLoadError {
-    if(sig.getInstruction() instanceof IfInstruction){
-      if(r != null){
-        l = new Integer(l.intValue() - r.intValue());
-      }
-      return eval_int_comparison(l.intValue(), sig);
+  protected static int eval_comparison(Number l, Number r, InstructionHandle cmp) throws ValueLoadError {
+    if(r != null){
+      l = new Integer(l.intValue() - r.intValue());
     }
-    else{
-      return eval_other_comparison(l, r, sig);
-    }
+    return eval_comparison(l.intValue(), cmp);
   }
 
-  private static boolean eval_int_comparison(int value, InstructionHandle sig) throws ValueLoadError {
+  protected static int eval_comparison(Number l, Number r, InstructionHandle cmp, InstructionHandle if_h) throws ValueLoadError {
+    int value;
+    Instruction i = cmp.getInstruction();
+    if(i instanceof DCMPG || i instanceof FCMPG){
+      if(l.doubleValue() > r.doubleValue()) value = 1;
+      else value = -1;
+    }
+    else if(i instanceof DCMPL || i instanceof FCMPL){
+      if(l.doubleValue() < r.doubleValue()) value = -1;
+      else value = 1;
+    }
+    else if(i instanceof LCMP){
+      if(l.longValue() > r.longValue()) value = 1;
+      else if(l.longValue() == r.longValue()) value = 0;
+      else value = -1;
+    }
+    else {
+      throw new ValueLoadError("Error, could not resolve signature preceding IfInstruction");
+    }
+    return eval_comparison(value, if_h);
+  }
+
+  private static int eval_comparison(int value, InstructionHandle sig) throws ValueLoadError {
     Instruction i = sig.getInstruction();
     if(i instanceof IF_ICMPEQ || i instanceof IFEQ){
-      return value == 0;
+      if(value == 0) return 1;
+      return 0;
     }
     else if(i instanceof IF_ICMPGE || i instanceof IFGE){
-      return value >= 0;
+      if(value >= 0) return 1;
+      return 0;
     }
     else if(i instanceof IF_ICMPGT || i instanceof IFGT){
-      return value > 0;
+      if(value > 0) return 1;
+      return 0;
     }
     else if(i instanceof IF_ICMPLE || i instanceof IFLE){
-      return value <= 0;
+      if(value <= 0) return 1;
+      return 0;
     }
     else if(i instanceof IF_ICMPLT || i instanceof IFLT){
-      return value < 0;
+      if(value < 0) return 1;
+      return 0;
     }
     else if(i instanceof IF_ICMPNE || i instanceof IFNE){
-      return value != 0;
+      if(value != 0) return 1;
+      return 0;
     }
     else {
       throw new ValueLoadError("Comparison is not of supported type");
