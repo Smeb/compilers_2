@@ -1,6 +1,7 @@
 package comp207p.main;
 
 import comp207p.main.utils.ValueLoadError;
+import comp207p.main.BCEL_API;
 
 import org.apache.bcel.generic.ASTORE;
 import org.apache.bcel.generic.ArithmeticInstruction;
@@ -22,15 +23,15 @@ import org.apache.bcel.generic.TargetLostException;
 
 public class ValueResolver {
 
-  protected static Number get_value(ConstantPoolGen cpgen, InstructionHandle handle) throws ValueLoadError{
+  protected static Number get_value(ConstantPoolGen cpgen, InstructionHandle handle, InstructionHandle sig) throws ValueLoadError{
     if(handle.getInstruction() instanceof LoadInstruction){
-      return get_load_value(cpgen, handle);
+      return get_load_value(cpgen, handle, BCEL_API.resolve_sig(cpgen, sig));
     }
     // Else should be a constant value
     return get_constant_value(cpgen, handle.getInstruction());
   }
 
-  private static Number get_load_value(ConstantPoolGen cpgen, InstructionHandle handle) throws ValueLoadError{
+  private static Number get_load_value(ConstantPoolGen cpgen, InstructionHandle handle, int sig) throws ValueLoadError{
     // if load instruction found, need to find and resolve the most
     // recent store instruction to the variable - we are not folding
     // variable stores so this should always be fine
@@ -64,10 +65,17 @@ public class ValueResolver {
     }
 
     try {
-      return get_constant_value(cpgen, h.getInstruction()).doubleValue() + acc;
+      Number value = get_constant_value(cpgen, h.getInstruction());
+      switch(sig){
+        case BCEL_API.SIG_I: return value.intValue() + acc;
+        case BCEL_API.SIG_J: return value.longValue() + acc;
+        case BCEL_API.SIG_F: return value.floatValue() + acc;
+        case BCEL_API.SIG_D: return value.doubleValue() + acc;
+      }
     } catch (RuntimeException e){
       throw new ValueLoadError("Value of variable could not be resolved");
     }
+    throw new ValueLoadError("Value of variable could not be resolved");
   }
 
   private static Number get_constant_value(ConstantPoolGen cpgen, Instruction instruction){
@@ -120,7 +128,6 @@ public class ValueResolver {
         sub_h = ((BranchInstruction)h.getInstruction()).getTarget();
         while(sub_h != null && sub_h != handle){
           sub_h = sub_h.getNext();
-          System.out.println(sub_h);
         }
         if(sub_h == null){
           return true;

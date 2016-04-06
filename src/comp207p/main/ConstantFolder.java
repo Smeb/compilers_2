@@ -54,6 +54,11 @@ public class ConstantFolder
   boolean _DEBUG = true;
   static boolean END_OPT = false;
   static boolean OPT_ALL = false;
+  static boolean MODE_SELECTED = false;
+  static int MODE = -1;
+  final static int C_B_C = 0;
+  final static int GRP_S = 1;
+  static String grp_str = "";
 
 	JavaClass original = null;
 	JavaClass optimized = null;
@@ -71,7 +76,23 @@ public class ConstantFolder
 
 	public void write(String optimisedFilePath)
 	{
-		this.optimize();
+    if(!MODE_SELECTED){
+      Scanner scanner = new Scanner(System.in);
+      System.out.println("================================================");
+      System.out.println("Select run mode");
+      do {
+        System.out.println("0 - class by class, 1 - named groups");
+        System.out.println("================================================");
+        MODE = scanner.nextInt();
+        scanner.nextLine();
+      } while(MODE != C_B_C && MODE != GRP_S);
+      if(MODE == GRP_S){
+        grp_str = scanner.nextLine().toLowerCase();
+      }
+      MODE_SELECTED = true;
+    }
+    // TODO: Needs to be removed back to optimize
+    this.optimize();
 		try {
 			FileOutputStream out = new FileOutputStream(new File(optimisedFilePath));
       this.optimized.dump(out);
@@ -116,7 +137,7 @@ public class ConstantFolder
     do {
       optimised = false;
       optimised |= optimise_arithmetic(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
-      //optimised |= optimise_comparisons(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
+      optimised |= optimise_comparisons(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
       optimised |= optimise_negation(cpgen, il);
     } while(optimised);
     do {
@@ -167,7 +188,7 @@ public class ConstantFolder
       }
       Number left_v;
       try{
-        left_v = ValueResolver.get_value(cpgen, matches[0]);
+        left_v = ValueResolver.get_value(cpgen, matches[0], matches[1]);
       } catch(ValueLoadError e){
         System.out.println("Value could not be resolved - no folding");
         continue;
@@ -198,8 +219,9 @@ public class ConstantFolder
       int end_index = matches.length;
       System.out.println(end_index);
       Number left_v;
+      InstructionHandle sig = matches[end_index - 1].getNext();
       try {
-        left_v = ValueResolver.get_value(cpgen, matches[0]);
+        left_v = ValueResolver.get_value(cpgen, matches[0], sig);
       } catch(ValueLoadError e){
         System.out.println("Value could not be resolved - no folding");
         continue;
@@ -207,7 +229,6 @@ public class ConstantFolder
 
       // The last instruction past the load instruction should be the
       // signature
-      InstructionHandle sig = matches[end_index - 1].getNext();
       if(!(sig.getInstruction() instanceof TypedInstruction)){
         System.out.println("Conversion type could not be resolved");
         continue;
@@ -239,14 +260,14 @@ public class ConstantFolder
 
       Number left_v, right_v;
       InstructionHandle ih = next_nonconversion(matches[0]);
+      InstructionHandle ih2 = next_nonconversion(ih);
       try {
-        left_v = ValueResolver.get_value(cpgen, matches[0]);
-        right_v = ValueResolver.get_value(cpgen, ih);
+        left_v = ValueResolver.get_value(cpgen, matches[0], ih2);
+        right_v = ValueResolver.get_value(cpgen, ih, ih2);
       } catch (ValueLoadError e){
         System.out.println("Value could not be resolved - no folding");
         continue;
       }
-      InstructionHandle ih2 = next_nonconversion(ih);
 
       if (!(matches[2].getInstruction() instanceof IfInstruction)){
         if (matches[3].getInstruction().getClass().getSimpleName().contains("a")) { continue; } //Can't optimise array structures so skip this match
@@ -356,16 +377,16 @@ public class ConstantFolder
 
       Number left_v, right_v;
       InstructionHandle ih = next_nonconversion(matches[0]);
+      InstructionHandle ih2 = next_nonconversion(ih);
 
       try {
-        left_v = ValueResolver.get_value(cpgen, matches[0]);
-        right_v = ValueResolver.get_value(cpgen, ih);
+        left_v = ValueResolver.get_value(cpgen, matches[0], ih2);
+        right_v = ValueResolver.get_value(cpgen, ih, ih2);
       } catch (ValueLoadError e){
         System.out.println("Value could not be resolved - no folding");
         continue;
       }
 
-      InstructionHandle ih2 = next_nonconversion(ih);
 
       Number result = ValueResolver.resolve_arithmetic_op(cpgen, left_v, right_v, ih2);
       BCEL_API.fold_to_constant(cpgen, matches[0], ih2, result);
@@ -387,25 +408,39 @@ public class ConstantFolder
     return optimised;
   }
 
-	public void optimize()
-  {
-    ClassGen cgen = new ClassGen(original);
-    if(!OPT_ALL){
-      if(END_OPT){
-        this.optimized = cgen.getJavaClass();
-        return;
-      }
+  public int class_by_class(){
       Scanner reader = new Scanner(System.in);
       System.out.println("================================================");
       System.out.println("Optimise class: '" + original.getClassName() + "' ?");
       System.out.println("2 --> optimise all; 1 --> yes; 0 --> no; -1 --> no further optimisations");
       System.out.println("================================================");
-      int n = reader.nextInt();
-      if(n == 0 || n == -1){
+      return reader.nextInt();
+  }
+
+  public int check_class(){
+    if(original.getClassName().toLowerCase().contains(grp_str)) return 1;
+    return 0;
+  }
+
+  public void compile(ClassGen cgen){
+    this.optimized = cgen.getJavaClass();
+  }
+	public void optimize()
+  {
+    ClassGen cgen = new ClassGen(original);
+    int n = 0;
+    switch(MODE){
+      case C_B_C: n = class_by_class();
+                  break;
+      case GRP_S: n = check_class();
+    }
+
+    if(!OPT_ALL){
+      if(n == 0 || n == -1 || END_OPT){
         if(n == -1){
           END_OPT = true;
         }
-        this.optimized = cgen.getJavaClass();
+        compile(cgen);
         return;
       }
       if(n == 2){
@@ -433,8 +468,7 @@ public class ConstantFolder
       // Optimisation body should be in this submethod
       optimise_method(cgen, cpgen, m);
     }
-
-		this.optimized = cgen.getJavaClass();
+    this.optimized = cgen.getJavaClass();
 	}
 
   private InstructionHandle next_nonconversion(InstructionHandle ih){
