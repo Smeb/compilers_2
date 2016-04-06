@@ -49,7 +49,7 @@ public class ConstantFolder
 	ClassGen gen = null;
   final String load_instruction = "(ILOAD|LLOAD|FLOAD|DLOAD)"; // Ignore ALOAD - ALOAD loads object reference- ALOAD loads object references
   final String push_value = "(ConstantPushInstruction|"+ load_instruction + "|LDC|LDC2_W)";
-  final String comparison_instructions = "(LCMP|DCMPL|DCMPG|FCMPL|FCMPG) (IfInstruction ICONST GOTO ICONST)";
+  final String comparison_instructions = "(LCMP|DCMPL|DCMPG|FCMPL|FCMPG)? IfInstruction (ICONST GOTO ICONST)?";
 
   boolean _DEBUG = true;
   static boolean END_OPT = false;
@@ -252,7 +252,7 @@ public class ConstantFolder
     boolean optimised = false;
     InstructionFinder f = new InstructionFinder(il);
     String comparison_regex = push_value + " " + "(ConversionInstruction)*" +
-                              push_value + " " + "(ConversionInstruction)*" +
+                              push_value + "?" + " " + "(ConversionInstruction)*" +
                               comparison_instructions;
     InstructionHandle[] matches = null;
     for(Iterator it = f.search(comparison_regex); it.hasNext();){
