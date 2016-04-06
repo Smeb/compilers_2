@@ -9,7 +9,7 @@ import static org.junit.Assert.assertEquals;
  */
 public class ComparisonsTest {
 
-  Comparisons cmp = new Comparisons();
+  CMP_comparisons cmp = new CMP_comparisons();
 
   @Test
   public void TEST_I_GT(){

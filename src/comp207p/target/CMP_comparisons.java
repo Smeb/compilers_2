@@ -1,5 +1,5 @@
 package comp207p.target;
-public class Comparisons {
+public class CMP_comparisons {
   public boolean I_GT(){
     int a = 0;
     int b = 1;

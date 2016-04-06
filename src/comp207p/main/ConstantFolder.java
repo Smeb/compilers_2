@@ -87,6 +87,9 @@ public class ConstantFolder
         scanner.nextLine();
       } while(MODE != C_B_C && MODE != GRP_S);
       if(MODE == GRP_S){
+        System.out.println("================================================");
+        System.out.println("Enter string to check on");
+        System.out.println("================================================");
         grp_str = scanner.nextLine().toLowerCase();
       }
       MODE_SELECTED = true;
