@@ -252,7 +252,7 @@ public class ConstantFolder
     boolean optimised = false;
     InstructionFinder f = new InstructionFinder(il);
     String comparison_regex = push_value + " " + "(ConversionInstruction)*" +
-                              push_value + "?" + " " + "(ConversionInstruction)*" +
+                              push_value + " " + "(ConversionInstruction)*" + // arguably the second push value is optional
                               comparison_instructions;
     InstructionHandle[] matches = null;
     for(Iterator it = f.search(comparison_regex); it.hasNext();){
@@ -261,64 +261,44 @@ public class ConstantFolder
         print_matches(matches);
       }
 
-      Number left_v, right_v;
-      InstructionHandle ih = next_nonconversion(matches[0]);
-      InstructionHandle ih2 = next_nonconversion(ih);
-      try {
-        left_v = ValueResolver.get_value(cpgen, matches[0], ih2);
-        right_v = ValueResolver.get_value(cpgen, ih, ih2);
-      } catch (ValueLoadError e){
-        System.out.println("Value could not be resolved - no folding");
+      InstructionHandle ih1 = matches[0];
+      InstructionHandle ih2 = next_nonconversion(ih1);
+      InstructionHandle ih3 = next_nonconversion(ih2);
+      try{
+        if(ih3.getInstruction() instanceof IfInstruction){
+          optimise_comparison(cpgen, il, ih1, ih2, ih3);
+        }
+        else{
+          InstructionHandle ih4 = next_nonconversion(ih3);
+          optimise_comparison(cpgen, il, ih1, ih2, ih3, ih4);
+        }
+      } catch(ValueLoadError e){
+        System.out.println(e.getMessage());
         continue;
       }
 
-      if (!(matches[2].getInstruction() instanceof IfInstruction)){
-        if (matches[3].getInstruction().getClass().getSimpleName().contains("a")) { continue; } //Can't optimise array structures so skip this match
-        try{
-          il.delete(matches[2]); // delete the cast such as dcmpl
-        } catch (TargetLostException e){
-          e.printStackTrace();
-        }
-      }
-
-      IfInstruction comparison = (IfInstruction) matches[2].getInstruction(); // Set the comparison instruction
-
-      if (comparison.getClass().getSimpleName().contains("a")) { continue; } //Can't optimise array structures
-
-      boolean result = compare_op(left_v, right_v, comparison);
-
-      // if (is_int_comp(comparison)){ // If the comparison is part of an if statement; I don't believe that this is needed, tho I already wrote it so...
-
-        if (result = true) {
-          try { //Wishful deadcode pruning
-            il.delete(matches[1], matches[2]); //delete the if statement and comparison
-          } catch (TargetLostException e) {
-            e.printStackTrace();
-          }
-        } else {
-          // This doesn't work
-          if(matches.length > 3){
-            purge_conversions(il, matches);
-      }
-          // matches[0].setInstruction(il.findHandle(get_value(cpgen, matches[2]).getInstruction()));
-        }
-      // } else {
-
-      //   if (result = true) {
-      //     matches[0].setInstruction(new ICONST(1)); // set the result as true
-      //   } else {
-      //     matches[0].setInstruction(new ICONST(0));
-      //   }
-
-      //   try {
-      //     il.delete(matches[1], matches[2]); //Delete the comparison, the store operation after (if appropriate) will still save the result
-      //   } catch (TargetLostException e) {
-      //     e.printStackTrace();
-      //   }
-      // }
-      optimised = true;
+      optimised = false;
     }
     return optimised;
+  }
+
+  public void optimise_comparison(ConstantPoolGen cpgen, InstructionList il, InstructionHandle load_h1, InstructionHandle load_h2, InstructionHandle if_h) throws ValueLoadError{
+    // Instructions in the sequence PUSH PUSH IF - these will be integer
+    // based comparisons
+    Number left_v, right_v;
+    left_v = ValueResolver.get_value(cpgen, load_h1, if_h);
+    right_v = ValueResolver.get_value(cpgen, load_h2, if_h);
+    boolean result = ValueResolver.eval_comparison(left_v, right_v, if_h);
+    System.out.println("Compared: " + left_v.intValue() + " " + right_v.intValue() + " result: " + result);
+  }
+  public void optimise_comparison(ConstantPoolGen cpgen, InstructionList il, InstructionHandle load_h1, InstructionHandle load_h2, InstructionHandle comp_h, InstructionHandle if_h) throws ValueLoadError{
+    // Instructions in the sequence PUSH PUSH (NON INT CMP) IF - non
+    // integer comparisons
+    Number left_v, right_v;
+    left_v = ValueResolver.get_value(cpgen, load_h1, comp_h);
+    right_v = ValueResolver.get_value(cpgen, load_h2, comp_h);
+    boolean result = ValueResolver.eval_comparison(left_v, right_v, comp_h);
+    System.out.println("Compared: " + left_v.intValue() + " " + right_v.intValue() + " result: " + result);
   }
 
   private boolean is_int_comp(IfInstruction op) { // I believe this is superfluous now
@@ -432,13 +412,13 @@ public class ConstantFolder
   {
     ClassGen cgen = new ClassGen(original);
     int n = 0;
-    switch(MODE){
-      case C_B_C: n = class_by_class();
-                  break;
-      case GRP_S: n = check_class();
-    }
 
     if(!OPT_ALL){
+      switch(MODE){
+        case C_B_C: n = class_by_class();
+                    break;
+        case GRP_S: n = check_class();
+      }
       if(n == 0 || n == -1 || END_OPT){
         if(n == -1){
           END_OPT = true;

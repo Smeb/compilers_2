@@ -3,6 +3,7 @@ package comp207p.main;
 import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.LDC;
 import org.apache.bcel.generic.LDC2_W;
+import org.apache.bcel.generic.IfInstruction;
 import org.apache.bcel.generic.Instruction;
 import org.apache.bcel.generic.Instruction;
 import org.apache.bcel.generic.InstructionHandle;
@@ -59,6 +60,9 @@ public class BCEL_API {
         return SIG_B;
       }
     }
-    throw new RuntimeException("Instruction not typed - function should not be called");
+    else if(i instanceof IfInstruction){
+      return SIG_I;
+    }
+    throw new RuntimeException("Instruction - " + signature + " not typed - function should not be called");
   }
 }

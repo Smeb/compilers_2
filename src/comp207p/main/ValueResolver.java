@@ -10,6 +10,7 @@ import org.apache.bcel.generic.ConstantPoolGen;
 import org.apache.bcel.generic.ConstantPushInstruction;
 import org.apache.bcel.generic.ConversionInstruction;
 import org.apache.bcel.generic.IINC;
+import org.apache.bcel.generic.IfInstruction;
 import org.apache.bcel.generic.Instruction;
 import org.apache.bcel.generic.InstructionList;
 import org.apache.bcel.generic.InstructionHandle;
@@ -20,6 +21,19 @@ import org.apache.bcel.generic.LocalVariableInstruction;
 import org.apache.bcel.generic.LoadInstruction;
 import org.apache.bcel.generic.StoreInstruction;
 import org.apache.bcel.generic.TargetLostException;
+import org.apache.bcel.generic.IFLE;
+import org.apache.bcel.generic.IFLT;
+import org.apache.bcel.generic.IFGE;
+import org.apache.bcel.generic.IFGT;
+import org.apache.bcel.generic.IFEQ;
+import org.apache.bcel.generic.IFNE;
+
+import org.apache.bcel.generic.IF_ICMPLE;
+import org.apache.bcel.generic.IF_ICMPLT;
+import org.apache.bcel.generic.IF_ICMPGE;
+import org.apache.bcel.generic.IF_ICMPGT;
+import org.apache.bcel.generic.IF_ICMPEQ;
+import org.apache.bcel.generic.IF_ICMPNE;
 
 public class ValueResolver {
 
@@ -61,7 +75,7 @@ public class ValueResolver {
       throw new ValueLoadError("Assignment happens in loop - variable will not be loaded");
     }
     if(in_conditional_branch(h)){
-      throw new ValueLoadError("Assignment happens in loop - variable will not be loaded");
+      throw new ValueLoadError("Assignment happens in branch - variable will not be loaded");
     }
 
     try {
@@ -116,14 +130,15 @@ public class ValueResolver {
     // Should take as input the store_instruction -> there should be
     // instructions beforehand
 
+    System.out.println(handle);
     InstructionHandle h = handle;
-    InstructionHandle sub_h = h;
+    InstructionHandle sub_h;
     while(h.getPrev() != null){
       // go to head of code
       h = h.getPrev();
     }
 
-    do {
+    while(h != null && h!= handle){
       if(h.getInstruction() instanceof BranchInstruction){
         sub_h = ((BranchInstruction)h.getInstruction()).getTarget();
         while(sub_h != null && sub_h != handle){
@@ -134,7 +149,7 @@ public class ValueResolver {
         }
       }
       h = h.getNext();
-    } while(h != null && h!= handle);
+    }
     return false;
   }
 
@@ -210,5 +225,43 @@ public class ValueResolver {
     }
   }
 
+  protected static boolean eval_comparison(Number l, Number r, InstructionHandle sig) throws ValueLoadError {
+    if(sig.getInstruction() instanceof IfInstruction){
+      if(r != null){
+        l = new Integer(l.intValue() - r.intValue());
+      }
+      return eval_int_comparison(l.intValue(), sig);
+    }
+    else{
+      return eval_other_comparison(l, r, sig);
+    }
+  }
 
+  private static boolean eval_int_comparison(int value, InstructionHandle sig) throws ValueLoadError {
+    Instruction i = sig.getInstruction();
+    if(i instanceof IF_ICMPEQ || i instanceof IFEQ){
+      return value == 0;
+    }
+    else if(i instanceof IF_ICMPGE || i instanceof IFGE){
+      return value >= 0;
+    }
+    else if(i instanceof IF_ICMPGT || i instanceof IFGT){
+      return value > 0;
+    }
+    else if(i instanceof IF_ICMPLE || i instanceof IFLE){
+      return value <= 0;
+    }
+    else if(i instanceof IF_ICMPLT || i instanceof IFLT){
+      return value < 0;
+    }
+    else if(i instanceof IF_ICMPNE || i instanceof IFNE){
+      return value != 0;
+    }
+    else {
+      throw new ValueLoadError("Comparison is not of supported type");
+    }
+  }
+  private static boolean eval_other_comparison(Number l, Number r, InstructionHandle sig){
+    return true;
+  }
 }
