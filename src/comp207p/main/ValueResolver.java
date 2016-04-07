@@ -64,6 +64,9 @@ public class ValueResolver {
 
     while((store_h = store_h.getPrev()) != null){
       if(store_h.getInstruction() instanceof IINC && ((IINC)store_h.getInstruction()).getIndex() == index){
+        if(in_loop(store_h) || in_conditional_branch(store_h)){
+          throw new ValueLoadError("Increment happens in loop - variable will not be loaded");
+        }
         acc += ((IINC)store_h.getInstruction()).getIncrement();
       }
       else if(store_h.getInstruction() instanceof StoreInstruction &&

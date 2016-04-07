@@ -1,28 +1,27 @@
 package comp207p.target;
 
-import org.junit.Test;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 
-/**
- * test simple folding
- */
-public class SimpleFoldingTest {
+import static org.junit.Assert.assertEquals;
 
-    SimpleFolding sf = new SimpleFolding();
-    
+public class WhileLoopTest {
+    private static final double DELTA = 1e-15;
+
+    WhileLoop whileLoop = new WhileLoop();
+
     private final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
-    
+
     @Before
     public void setUpStreams()
     {
         System.setOut(new PrintStream(outContent));
     }
-    
+
     @After
     public void cleanUpStreams()
     {
@@ -30,9 +29,7 @@ public class SimpleFoldingTest {
     }
 
     @Test
-    public void testSimple(){
-        sf.simple();
-        assertEquals("12412\n", outContent.toString());
+    public void testFoo(){
+        assertEquals(35.3856, whileLoop.foo(), DELTA);
     }
-
 }

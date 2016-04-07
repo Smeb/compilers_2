@@ -11,11 +11,10 @@
 .end method
 
 .method public simple()V
-	.limit stack 4
+	.limit stack 3
 
 	getstatic java/lang/System/out Ljava/io/PrintStream;
-	ldc2_w 67.32
-  d2i
+	ldc 67
 	ldc 12345
     iadd
     invokevirtual java/io/PrintStream/println(I)V

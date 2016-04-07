@@ -230,6 +230,7 @@ public class ConstantFolder
         System.out.println(e.getMessage());
         continue;
       }
+      System.out.println("Value - " + left_v);
 
       // The last instruction past the load instruction should be the
       // signature
