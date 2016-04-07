@@ -139,15 +139,15 @@ public class ConstantFolder
     boolean optimised;
     do {
       optimised = false;
-      optimised |= optimise_arithmetic(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
+      //optimised |= optimise_arithmetic(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
       optimised |= optimise_comparisons(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
-      optimised |= optimise_negation(cpgen, il);
+      //optimised |= optimise_negation(cpgen, il);
     } while(optimised);
     do {
       // post optimisation pass to remove excess conversions where
       // possible.
       optimised = false;
-      optimised |= optimise_casts(cpgen, il);
+      //optimised |= optimise_casts(cpgen, il);
     } while(optimised);
 
     if(_DEBUG){
@@ -204,7 +204,6 @@ public class ConstantFolder
         e.printStackTrace();
       }
       optimised = true;
-      BCEL_API.print_range(il.getStart(), il.getEnd());
     }
     return optimised;
 
@@ -246,7 +245,6 @@ public class ConstantFolder
         e.printStackTrace();
       }
       optimised = true;
-      BCEL_API.print_range(il.getStart(), il.getEnd());
     }
     return optimised;
   }
@@ -280,7 +278,6 @@ public class ConstantFolder
         continue;
       }
       optimised = true;
-      BCEL_API.print_range(il.getStart(), il.getEnd());
       f.reread();
       it = f.search(comparison_regex);
     }

@@ -71,6 +71,7 @@ public class BCEL_API {
   protected static void remove_branch(ConstantPoolGen cpgen, InstructionList il, InstructionHandle load_h, InstructionHandle if_h, int result) throws TargetLostException{
     InstructionHandle start, end;
     if(result == 0){
+      System.out.println("Else condition, deleting after the jump");
       InstructionHandle goto_ih = ((BranchInstruction)if_h.getInstruction()).getTarget().getPrev();
       if(!(goto_ih.getInstruction() instanceof GOTO)){
         il.delete(load_h, if_h);

@@ -86,7 +86,7 @@ public class ValueResolver {
     if(in_conditional_branch(store_h)){
       throw new ValueLoadError("Assignment happens in branch - variable will not be loaded");
     }
-    if(lookahead_in_loop(load_h)){
+    if(in_loop(load_h) && lookahead_in_loop(load_h)){
       throw new ValueLoadError("Load instruction is in a loop and is assigned to within the loop after instruction");
     }
 
@@ -128,7 +128,7 @@ public class ValueResolver {
     while((h = h.getNext()) != null){
       if(h.getInstruction() instanceof BranchInstruction){
         sub_h = ((BranchInstruction)h.getInstruction()).getTarget();
-        if(sub_h.getPosition() < handle.getPosition()){
+        if(sub_h.getPosition() <= handle.getPosition()){
           System.out.println("In loop");
           return true;
         }
