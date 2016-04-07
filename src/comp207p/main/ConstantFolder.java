@@ -254,7 +254,7 @@ public class ConstantFolder
     boolean optimised = false;
     InstructionFinder f = new InstructionFinder(il);
     String comparison_regex = push_value + " " + "(ConversionInstruction)*" +
-                              push_value + " " + "(ConversionInstruction)*" + // arguably the second push value is optional
+                              push_value + " " + "(ConversionInstruction)*" + // TODO: Resolve whether second push_value is optional
                               comparison_instructions;
     InstructionHandle[] matches = null;
     for(Iterator it = f.search(comparison_regex); it.hasNext();){
