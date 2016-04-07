@@ -45,7 +45,6 @@ import org.apache.bcel.generic.IF_ICMPNE;
 public class ValueResolver {
 
   protected static Number get_value(ConstantPoolGen cpgen, InstructionHandle handle, InstructionHandle sig) throws ValueLoadError{
-    System.out.println("Loading value for:" + handle);
     if(handle.getInstruction() instanceof LoadInstruction){
       return get_load_value(cpgen, handle, BCEL_API.resolve_sig(cpgen, sig));
     }
@@ -78,7 +77,6 @@ public class ValueResolver {
       if(!(store_h.getInstruction() instanceof ConversionInstruction)){
         break;
       }
-      System.out.println(store_h);
     }
     if(in_loop(store_h)){
       throw new ValueLoadError("Assignment happens in loop - variable will not be loaded");
@@ -129,7 +127,6 @@ public class ValueResolver {
       if(h.getInstruction() instanceof BranchInstruction){
         sub_h = ((BranchInstruction)h.getInstruction()).getTarget();
         if(sub_h.getPosition() <= handle.getPosition()){
-          System.out.println("In loop");
           return true;
         }
       }
@@ -141,19 +138,20 @@ public class ValueResolver {
     // Check entire loop body of load instruction to see if there are
     // any assignments to the load within a loop
     int index = ((LocalVariableInstruction)load_h.getInstruction()).getIndex();
-    System.out.println("Index: " + index);
     InstructionHandle h = load_h;
     InstructionHandle sub_h;
     while((h = h.getNext()) != null){
       if(h.getInstruction() instanceof BranchInstruction){
         sub_h = ((BranchInstruction)h.getInstruction()).getTarget();
-        do {
-          if(sub_h.getInstruction() instanceof IINC || sub_h.getInstruction() instanceof StoreInstruction){
-            if(((IndexedInstruction)sub_h.getInstruction()).getIndex() == index){
-              return true;
+        if(sub_h.getPosition() <= load_h.getPosition()){
+          do {
+            if(sub_h.getInstruction() instanceof IINC || sub_h.getInstruction() instanceof StoreInstruction){
+              if(((IndexedInstruction)sub_h.getInstruction()).getIndex() == index){
+                return true;
+              }
             }
-          }
-        } while((sub_h = sub_h.getNext()) != h && sub_h != null);
+          } while((sub_h = sub_h.getNext()) != h && sub_h != null);
+        }
       }
     }
     return false;
@@ -173,7 +171,6 @@ public class ValueResolver {
       if(h.getInstruction() instanceof BranchInstruction){
         sub_h = ((BranchInstruction)h.getInstruction()).getTarget();
         if(sub_h.getPosition() > handle.getPosition()){
-          System.out.println("In if branch");
           return true;
         }
       }

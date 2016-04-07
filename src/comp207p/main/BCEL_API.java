@@ -71,7 +71,6 @@ public class BCEL_API {
   protected static void remove_branch(ConstantPoolGen cpgen, InstructionList il, InstructionHandle load_h, InstructionHandle if_h, int result) throws TargetLostException{
     InstructionHandle start, end;
     if(result == 0){
-      System.out.println("Else condition, deleting after the jump");
       InstructionHandle goto_ih = ((BranchInstruction)if_h.getInstruction()).getTarget().getPrev();
       if(!(goto_ih.getInstruction() instanceof GOTO)){
         il.delete(load_h, if_h);
@@ -82,26 +81,12 @@ public class BCEL_API {
       il.delete(goto_ih);
     }
     else{
-      System.out.println("Else condition, deleting before the jump");
       start = if_h.getNext();
       end = ((BranchInstruction)if_h.getInstruction()).getTarget().getPrev();
     }
 
-    print_range(start, end);
     il.delete(load_h, if_h);
     il.delete(start, end);
 
-    System.out.println("List after deletion");
-    print_range(il.getStart(), il.getEnd());
-    System.out.println("=======================================");
-  }
-
-  protected static void print_range(InstructionHandle start, InstructionHandle end){
-    System.out.println("CURRENT TARGETS");
-    while(start != end){
-      System.out.println(start);
-      start = start.getNext();
-    }
-    System.out.println(end);
   }
 }

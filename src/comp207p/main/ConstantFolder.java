@@ -51,15 +51,6 @@ public class ConstantFolder
   final String push_value = "(ConstantPushInstruction|"+ load_instruction + "|LDC|LDC2_W)";
   final String comparison_instructions = "(LCMP|DCMPL|DCMPG|FCMPL|FCMPG)? IfInstruction (ICONST GOTO ICONST)?";
 
-  boolean _DEBUG = true;
-  static boolean END_OPT = false;
-  static boolean OPT_ALL = false;
-  static boolean MODE_SELECTED = false;
-  static int MODE = -1;
-  final static int C_B_C = 0;
-  final static int GRP_S = 1;
-  static String grp_str = "";
-
 	JavaClass original = null;
 	JavaClass optimized = null;
 
@@ -76,25 +67,6 @@ public class ConstantFolder
 
 	public void write(String optimisedFilePath)
 	{
-    if(!MODE_SELECTED){
-      Scanner scanner = new Scanner(System.in);
-      System.out.println("================================================");
-      System.out.println("Select run mode");
-      do {
-        System.out.println("0 - class by class, 1 - named groups");
-        System.out.println("================================================");
-        MODE = scanner.nextInt();
-        scanner.nextLine();
-      } while(MODE != C_B_C && MODE != GRP_S);
-      if(MODE == GRP_S){
-        System.out.println("================================================");
-        System.out.println("Enter string to check on");
-        System.out.println("================================================");
-        grp_str = scanner.nextLine().toLowerCase();
-      }
-      MODE_SELECTED = true;
-    }
-    // TODO: Needs to be removed back to optimize
     this.optimize();
 		try {
 			FileOutputStream out = new FileOutputStream(new File(optimisedFilePath));
@@ -118,14 +90,6 @@ public class ConstantFolder
 
     InstructionList il = new InstructionList(method.getCode().getCode());
 
-    if(_DEBUG){
-      System.out.println("Method: " + method);
-      System.out.println("================================================");
-      System.out.println("Pre-optimisation instructions:");
-      print_instructions(il);
-      System.out.println("================================================");
-    }
-
     MethodGen mgen = new MethodGen(
         method.getAccessFlags(),
         method.getReturnType(),
@@ -143,6 +107,7 @@ public class ConstantFolder
       optimised |= optimise_comparisons(cpgen, il);  // All arithmetic instructions should be in the form loadX loadY op
       optimised |= optimise_negation(cpgen, il);
     } while(optimised);
+
     do {
       // post optimisation pass to remove excess conversions where
       // possible.
@@ -150,15 +115,6 @@ public class ConstantFolder
       optimised |= optimise_casts(cpgen, il);
     } while(optimised);
 
-    if(_DEBUG){
-      System.out.println("Optimised instructions:");
-      print_instructions(il);
-      System.out.println("================================================");
-    }
-
-    // Due to an unresolved bug with changing the instruction list of a
-    // deep copied method it's easier to just create an entirely new
-    // method
     il.setPositions(true);
     mgen.setMaxStack();
     mgen.setMaxLocals();
@@ -184,16 +140,13 @@ public class ConstantFolder
     boolean optimised = false;
     InstructionFinder f = new InstructionFinder(il);
     String negation_regex = push_value + " " + "(DNEG|FNEG|INEG|LNEG)";
-    for(Iterator it = f.search(negation_regex); it.hasNext();){
+    Iterator it = f.search(negation_regex);
+    while(it.hasNext()){
       InstructionHandle[] matches = (InstructionHandle[]) it.next();
-      if(_DEBUG){
-        print_matches(matches);
-      }
       Number left_v;
       try{
         left_v = ValueResolver.get_value(cpgen, matches[0], matches[1]);
       } catch(ValueLoadError e){
-        System.out.println(e.getMessage());
         continue;
       }
       Number result = ValueResolver.resolve_negation(cpgen, left_v, matches[1]);
@@ -204,6 +157,8 @@ public class ConstantFolder
         e.printStackTrace();
       }
       optimised = true;
+      f.reread();
+      it = f.search(negation_regex);
     }
     return optimised;
 
@@ -216,25 +171,18 @@ public class ConstantFolder
     InstructionHandle[] matches = null;
     for(Iterator it = f.search(comparison_regex); it.hasNext();){
       matches = (InstructionHandle[]) it.next();
-      if(_DEBUG){
-        print_matches(matches);
-      }
       int end_index = matches.length;
-      System.out.println(end_index);
       Number left_v;
       InstructionHandle sig = matches[end_index - 1].getNext();
       try {
         left_v = ValueResolver.get_value(cpgen, matches[0], sig);
       } catch(ValueLoadError e){
-        System.out.println(e.getMessage());
         continue;
       }
-      System.out.println("Value - " + left_v);
 
       // The last instruction past the load instruction should be the
       // signature
       if(!(sig.getInstruction() instanceof TypedInstruction)){
-        System.out.println("Conversion type could not be resolved");
         continue;
       }
       BCEL_API.fold_to_constant(cpgen, matches[0], sig, left_v);
@@ -256,11 +204,9 @@ public class ConstantFolder
                               push_value + " " + "(ConversionInstruction)*" + // TODO: Resolve whether second push_value is optional
                               comparison_instructions;
     InstructionHandle[] matches = null;
-    for(Iterator it = f.search(comparison_regex); it.hasNext();){
+    Iterator it = f.search(comparison_regex);
+    while(it.hasNext()){
       matches = (InstructionHandle[]) it.next();
-      if(_DEBUG){
-        print_matches(matches);
-      }
 
       InstructionHandle ih1 = matches[0];
       InstructionHandle ih2 = next_nonconversion(ih1);
@@ -274,7 +220,6 @@ public class ConstantFolder
           optimise_comparison(cpgen, il, ih1, ih2, ih3, ih4);
         }
       } catch(ValueLoadError e){
-        System.out.println(e.getMessage());
         continue;
       }
       optimised = true;
@@ -367,11 +312,9 @@ public class ConstantFolder
                               "ArithmeticInstruction";
 
     InstructionHandle[] matches = null;
-    for(Iterator it = f.search(arithmetic_regex); it.hasNext();){
+    Iterator it = f.search(arithmetic_regex);
+    while(it.hasNext()){
       matches = (InstructionHandle[]) it.next();
-      if(_DEBUG){
-        print_matches(matches);
-      }
 
       Number left_v, right_v;
       InstructionHandle ih = next_nonconversion(matches[0]);
@@ -381,7 +324,6 @@ public class ConstantFolder
         left_v = ValueResolver.get_value(cpgen, matches[0], ih2);
         right_v = ValueResolver.get_value(cpgen, ih, ih2);
       } catch (ValueLoadError e){
-        System.out.println(e.getMessage());
         continue;
       }
 
@@ -405,72 +347,11 @@ public class ConstantFolder
     }
     return optimised;
   }
-
-  public int class_by_class(){
-      Scanner reader = new Scanner(System.in);
-      System.out.println("================================================");
-      System.out.println("Optimise class: '" + original.getClassName() + "' ?");
-      System.out.println("2 --> optimise all; 1 --> yes; 0 --> no; -1 --> no further optimisations");
-      System.out.println("================================================");
-      return reader.nextInt();
-  }
-
-  public int check_class(){
-    if(original.getClassName().toLowerCase().contains(grp_str)) return 1;
-    return 0;
-  }
-
-  public void compile(ClassGen cgen){
-    this.optimized = cgen.getJavaClass();
-  }
 	public void optimize()
   {
     ClassGen cgen = new ClassGen(original);
-    int n = 0;
-
-    if(!OPT_ALL){
-      switch(MODE){
-        case C_B_C: n = class_by_class();
-                    break;
-        case GRP_S: n = check_class();
-                    if(n != 0){
-                      System.out.println("================================================");
-                      System.out.println("Class: '" + original.getClassName() + "'");
-                      System.out.println("================================================");
-                    }
-      }
-      if(n == 0 || n == -1 || END_OPT){
-        if(n == -1){
-          END_OPT = true;
-        }
-        compile(cgen);
-        return;
-      }
-      if(n == 2){
-        OPT_ALL = true;
-      }
-    }
-    else {
-      System.out.println("================================================");
-      System.out.println("Class: '" + original.getClassName() + "'");
-      System.out.println("================================================");
-    }
-
 		ConstantPoolGen cpgen = cgen.getConstantPool();
-    ConstantPool cp = cpgen.getConstantPool();
-    Constant[] constants = cp.getConstantPool();
     Method[] methods = cgen.getMethods();
-
-    System.out.println("================================================");
-    System.out.println("Class constant pool");
-    for(Constant c : constants){
-      // Debugging to print out constants that we care about
-      if(c == null) continue;
-      else if(c instanceof ConstantString) continue;
-      else if(c instanceof ConstantUtf8) continue;
-      else System.out.println(c);
-    }
-    System.out.println("================================================");
 
     for(Method m : methods){
       // Optimisation body should be in this submethod
@@ -486,20 +367,5 @@ public class ConstantFolder
       }
     }
     throw new RuntimeException("Incorrectly handled conversion slide");
-  }
-
-  private void print_matches(InstructionHandle[] matches){
-    System.out.println("Optimisable instructions found:");
-    for(InstructionHandle h : matches){
-      System.out.println(h);
-    }
-    System.out.println("================================================");
-  }
-
-  private void print_instructions(InstructionList il){
-    InstructionHandle[] handles = il.getInstructionHandles();
-    for(InstructionHandle h : handles){
-      System.out.println(h);
-    }
   }
 }
