@@ -278,7 +278,7 @@ public class ConstantFolder
         System.out.println(e.getMessage());
         continue;
       }
-      optimised = false;
+      optimised = true;
       BCEL_API.print_range(il.getStart(), il.getEnd());
       f.reread();
       it = f.search(comparison_regex);
