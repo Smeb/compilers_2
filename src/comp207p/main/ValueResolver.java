@@ -11,6 +11,7 @@ import org.apache.bcel.generic.ConstantPushInstruction;
 import org.apache.bcel.generic.ConversionInstruction;
 import org.apache.bcel.generic.IINC;
 import org.apache.bcel.generic.IfInstruction;
+import org.apache.bcel.generic.IndexedInstruction;
 import org.apache.bcel.generic.Instruction;
 import org.apache.bcel.generic.InstructionList;
 import org.apache.bcel.generic.InstructionHandle;
@@ -44,6 +45,7 @@ import org.apache.bcel.generic.IF_ICMPNE;
 public class ValueResolver {
 
   protected static Number get_value(ConstantPoolGen cpgen, InstructionHandle handle, InstructionHandle sig) throws ValueLoadError{
+    System.out.println("Loading value for:" + handle);
     if(handle.getInstruction() instanceof LoadInstruction){
       return get_load_value(cpgen, handle, BCEL_API.resolve_sig(cpgen, sig));
     }
@@ -51,41 +53,42 @@ public class ValueResolver {
     return get_constant_value(cpgen, handle.getInstruction());
   }
 
-  private static Number get_load_value(ConstantPoolGen cpgen, InstructionHandle handle, int sig) throws ValueLoadError{
+  private static Number get_load_value(ConstantPoolGen cpgen, InstructionHandle load_h, int sig) throws ValueLoadError{
     // if load instruction found, need to find and resolve the most
     // recent store instruction to the variable - we are not folding
     // variable stores so this should always be fine
 
-    int index = ((LocalVariableInstruction) handle.getInstruction()).getIndex();
+    int index = ((LocalVariableInstruction) load_h.getInstruction()).getIndex();
     int acc = 0;
-    InstructionHandle h = handle;
+    InstructionHandle store_h = load_h;
 
-    while((h = h.getPrev()) != null){
-      if(h.getInstruction() instanceof IINC && ((IINC)h.getInstruction()).getIndex() == index){
-        acc += ((IINC)h.getInstruction()).getIncrement();
+    while((store_h = store_h.getPrev()) != null){
+      if(store_h.getInstruction() instanceof IINC && ((IINC)store_h.getInstruction()).getIndex() == index){
+        acc += ((IINC)store_h.getInstruction()).getIncrement();
       }
-      else if(h.getInstruction() instanceof StoreInstruction &&
-          ((StoreInstruction)h.getInstruction()).getIndex() == index){
+      else if(store_h.getInstruction() instanceof StoreInstruction &&
+          ((StoreInstruction)store_h.getInstruction()).getIndex() == index){
         break;
           }
     }
-    while((h = h.getPrev()) != null){
-      if(!(h.getInstruction() instanceof ConversionInstruction)){
+    while((store_h = store_h.getPrev()) != null){
+      if(!(store_h.getInstruction() instanceof ConversionInstruction)){
         break;
       }
+      System.out.println(store_h);
     }
-    if(h.getInstruction() instanceof ASTORE){
-      throw new ValueLoadError("Array storage is not in the scope of coursework");
-    }
-    if(in_loop(h)){
+    if(in_loop(store_h)){
       throw new ValueLoadError("Assignment happens in loop - variable will not be loaded");
     }
-    if(in_conditional_branch(h)){
+    if(in_conditional_branch(store_h)){
       throw new ValueLoadError("Assignment happens in branch - variable will not be loaded");
+    }
+    if(lookahead_in_loop(load_h)){
+      throw new ValueLoadError("Load instruction is in a loop and is assigned to within the loop after instruction");
     }
 
     try {
-      Number value = get_constant_value(cpgen, h.getInstruction());
+      Number value = get_constant_value(cpgen, store_h.getInstruction());
       switch(sig){
         case BCEL_API.SIG_I: return value.intValue() + acc;
         case BCEL_API.SIG_J: return value.longValue() + acc;
@@ -113,20 +116,41 @@ public class ValueResolver {
     }
   }
 
-  //TODO: Need to ensure to check that skippable instructions are not
-  //evaluated
   private static boolean in_loop(InstructionHandle handle){
+    // Check to see whether instruction pointed to by handle is within
+    // the body of a loop -> usually to check if the value of the
+    // Instruction is resolvable.
     InstructionHandle h = handle;
     InstructionHandle sub_h;
     while((h = h.getNext()) != null){
       if(h.getInstruction() instanceof BranchInstruction){
         sub_h = ((BranchInstruction)h.getInstruction()).getTarget();
-        while(sub_h != null && sub_h!= h){
-          if(sub_h == handle){
-            return true;
-          }
-          sub_h = sub_h.getNext();
+        if(sub_h.getPosition() < handle.getPosition()){
+          System.out.println("In loop");
+          return true;
         }
+      }
+    }
+    return false;
+  }
+
+  private static boolean lookahead_in_loop(InstructionHandle load_h){
+    // Check entire loop body of load instruction to see if there are
+    // any assignments to the load within a loop
+    int index = ((LocalVariableInstruction)load_h.getInstruction()).getIndex();
+    System.out.println("Index: " + index);
+    InstructionHandle h = load_h;
+    InstructionHandle sub_h;
+    while((h = h.getNext()) != null){
+      if(h.getInstruction() instanceof BranchInstruction){
+        sub_h = ((BranchInstruction)h.getInstruction()).getTarget();
+        do {
+          if(sub_h.getInstruction() instanceof IINC || sub_h.getInstruction() instanceof StoreInstruction){
+            if(((IndexedInstruction)sub_h.getInstruction()).getIndex() == index){
+              return true;
+            }
+          }
+        } while((sub_h = sub_h.getNext()) != h && sub_h != null);
       }
     }
     return false;
@@ -137,19 +161,16 @@ public class ValueResolver {
     // instructions beforehand
 
     InstructionHandle h = handle;
-    InstructionHandle sub_h;
     while(h.getPrev() != null){
-      // go to head of code
       h = h.getPrev();
     }
+    InstructionHandle sub_h;
 
     while(h != null && h!= handle){
       if(h.getInstruction() instanceof BranchInstruction){
         sub_h = ((BranchInstruction)h.getInstruction()).getTarget();
-        while(sub_h != null && sub_h != handle){
-          sub_h = sub_h.getNext();
-        }
-        if(sub_h == null){
+        if(sub_h.getPosition() > handle.getPosition()){
+          System.out.println("In if branch");
           return true;
         }
       }

@@ -12,102 +12,102 @@ public class ComparisonsTest {
   CMP_comparisons cmp = new CMP_comparisons();
 
   @Test
-  public void TEST_I_GT(){
-    assertEquals(false, cmp.I_GT());
+  public void TEST_I_GT_F(){
+    assertEquals(false, cmp.I_GT_F());
   }
   @Test
-  public void TEST_I_GTE(){
-    assertEquals(false, cmp.I_GTE());
+  public void TEST_I_GTE_F(){
+    assertEquals(false, cmp.I_GTE_F());
   }
   @Test
-  public void TEST_I_LT(){
-    assertEquals(true, cmp.I_LT());
+  public void TEST_I_LT_T(){
+    assertEquals(true, cmp.I_LT_T());
   }
   @Test
-  public void TEST_I_LTE(){
-    assertEquals(true, cmp.I_LTE());
+  public void TEST_I_LTE_T(){
+    assertEquals(true, cmp.I_LTE_T());
   }
   @Test
-  public void TEST_I_EQ(){
-    assertEquals(false, cmp.I_EQ());
+  public void TEST_I_EQ_F(){
+    assertEquals(false, cmp.I_EQ_F());
   }
   @Test
-  public void TEST_I_NEQ(){
-    assertEquals(true, cmp.I_NEQ());
-  }
-
-  @Test
-  public void TEST_L_GT(){
-    assertEquals(false, cmp.L_GT());
-  }
-  @Test
-  public void TEST_L_GTE(){
-    assertEquals(false, cmp.L_GTE());
-  }
-  @Test
-  public void TEST_L_LT(){
-    assertEquals(true, cmp.L_LT());
-  }
-  @Test
-  public void TEST_L_LTE(){
-    assertEquals(true, cmp.L_LTE());
-  }
-  @Test
-  public void TEST_L_EQ(){
-    assertEquals(false, cmp.L_EQ());
-  }
-  @Test
-  public void TEST_L_NEQ(){
-    assertEquals(true, cmp.L_NEQ());
+  public void TEST_I_NEQ_T(){
+    assertEquals(true, cmp.I_NEQ_T());
   }
 
   @Test
-  public void TEST_F_GT(){
-    assertEquals(false, cmp.F_GT());
+  public void TEST_L_GT_F(){
+    assertEquals(false, cmp.L_GT_F());
   }
   @Test
-  public void TEST_F_GTE(){
-    assertEquals(false, cmp.F_GTE());
+  public void TEST_L_GTE_F(){
+    assertEquals(false, cmp.L_GTE_F());
   }
   @Test
-  public void TEST_F_LT(){
-    assertEquals(true, cmp.F_LT());
+  public void TEST_L_LT_T(){
+    assertEquals(true, cmp.L_LT_T());
   }
   @Test
-  public void TEST_F_LTE(){
-    assertEquals(true, cmp.F_LTE());
+  public void TEST_L_LTE_T(){
+    assertEquals(true, cmp.L_LTE_T());
   }
   @Test
-  public void TEST_F_EQ(){
-    assertEquals(false, cmp.F_EQ());
+  public void TEST_L_EQ_F(){
+    assertEquals(false, cmp.L_EQ_F());
   }
   @Test
-  public void TEST_F_NEQ(){
-    assertEquals(true, cmp.F_NEQ());
+  public void TEST_L_NEQ_T(){
+    assertEquals(true, cmp.L_NEQ_T());
   }
 
   @Test
-  public void TEST_D_GT(){
-    assertEquals(false, cmp.D_GT());
+  public void TEST_F_GT_F(){
+    assertEquals(false, cmp.F_GT_F());
   }
   @Test
-  public void TEST_D_GTE(){
-    assertEquals(false, cmp.D_GTE());
+  public void TEST_F_GTE_F(){
+    assertEquals(false, cmp.F_GTE_F());
   }
   @Test
-  public void TEST_D_LT(){
-    assertEquals(true, cmp.D_LT());
+  public void TEST_F_LT_T(){
+    assertEquals(true, cmp.F_LT_T());
   }
   @Test
-  public void TEST_D_LTE(){
-    assertEquals(true, cmp.D_LTE());
+  public void TEST_F_LTE_T(){
+    assertEquals(true, cmp.F_LTE_T());
   }
   @Test
-  public void TEST_D_EQ(){
-    assertEquals(false, cmp.D_EQ());
+  public void TEST_F_EQ_F(){
+    assertEquals(false, cmp.F_EQ_F());
   }
   @Test
-  public void TEST_D_NEQ(){
-    assertEquals(true, cmp.D_NEQ());
+  public void TEST_F_NEQ_T(){
+    assertEquals(true, cmp.F_NEQ_T());
+  }
+
+  @Test
+  public void TEST_D_GT_F(){
+    assertEquals(false, cmp.D_GT_F());
+  }
+  @Test
+  public void TEST_D_GTE_F(){
+    assertEquals(false, cmp.D_GTE_F());
+  }
+  @Test
+  public void TEST_D_LT_T(){
+    assertEquals(true, cmp.D_LT_T());
+  }
+  @Test
+  public void TEST_D_LTE_T(){
+    assertEquals(true, cmp.D_LTE_T());
+  }
+  @Test
+  public void TEST_D_EQ_F(){
+    assertEquals(false, cmp.D_EQ_F());
+  }
+  @Test
+  public void TEST_D_NEQ_T(){
+    assertEquals(true, cmp.D_NEQ_T());
   }
 }

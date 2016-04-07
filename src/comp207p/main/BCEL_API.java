@@ -23,7 +23,6 @@ public class BCEL_API {
   public static void fold_to_constant(ConstantPoolGen cpgen, InstructionHandle target, InstructionHandle signature, Number result){
     int sig = resolve_sig(cpgen, signature);
     int cp_index = cp_insert(cpgen, result, sig);
-    System.out.println(sig);
     switch(sig){
       case SIG_D: target.setInstruction(new LDC2_W(cp_index)); break;
       case SIG_J: target.setInstruction(new LDC2_W(cp_index)); break;

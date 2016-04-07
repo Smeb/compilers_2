@@ -193,7 +193,7 @@ public class ConstantFolder
       try{
         left_v = ValueResolver.get_value(cpgen, matches[0], matches[1]);
       } catch(ValueLoadError e){
-        System.out.println("Value could not be resolved - no folding");
+        System.out.println(e.getMessage());
         continue;
       }
       Number result = ValueResolver.resolve_negation(cpgen, left_v, matches[1]);
@@ -204,6 +204,7 @@ public class ConstantFolder
         e.printStackTrace();
       }
       optimised = true;
+      BCEL_API.print_range(il.getStart(), il.getEnd());
     }
     return optimised;
 
@@ -226,7 +227,7 @@ public class ConstantFolder
       try {
         left_v = ValueResolver.get_value(cpgen, matches[0], sig);
       } catch(ValueLoadError e){
-        System.out.println("Value could not be resolved - no folding");
+        System.out.println(e.getMessage());
         continue;
       }
 
@@ -244,6 +245,7 @@ public class ConstantFolder
         e.printStackTrace();
       }
       optimised = true;
+      BCEL_API.print_range(il.getStart(), il.getEnd());
     }
     return optimised;
   }
@@ -273,11 +275,11 @@ public class ConstantFolder
           optimise_comparison(cpgen, il, ih1, ih2, ih3, ih4);
         }
       } catch(ValueLoadError e){
-        System.out.println("Serious error thrown");
         System.out.println(e.getMessage());
         continue;
       }
       optimised = false;
+      BCEL_API.print_range(il.getStart(), il.getEnd());
       f.reread();
       it = f.search(comparison_regex);
     }
@@ -381,7 +383,7 @@ public class ConstantFolder
         left_v = ValueResolver.get_value(cpgen, matches[0], ih2);
         right_v = ValueResolver.get_value(cpgen, ih, ih2);
       } catch (ValueLoadError e){
-        System.out.println("Value could not be resolved - no folding");
+        System.out.println(e.getMessage());
         continue;
       }
 
@@ -433,6 +435,11 @@ public class ConstantFolder
         case C_B_C: n = class_by_class();
                     break;
         case GRP_S: n = check_class();
+                    if(n != 0){
+                      System.out.println("================================================");
+                      System.out.println("Class: '" + original.getClassName() + "'");
+                      System.out.println("================================================");
+                    }
       }
       if(n == 0 || n == -1 || END_OPT){
         if(n == -1){
@@ -444,6 +451,11 @@ public class ConstantFolder
       if(n == 2){
         OPT_ALL = true;
       }
+    }
+    else {
+      System.out.println("================================================");
+      System.out.println("Class: '" + original.getClassName() + "'");
+      System.out.println("================================================");
     }
 
 		ConstantPoolGen cpgen = cgen.getConstantPool();
